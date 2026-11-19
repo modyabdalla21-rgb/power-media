@@ -28,9 +28,16 @@ export function SiteHeader({ locale, nav }: { locale: Locale; nav: Dictionary["n
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    if (!open) return;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open]);
+  const closeMenu = () => setOpen(false);
 
   const isActive = (href: string) => pathname?.startsWith(localizedHref(locale, href));
 
@@ -101,17 +108,18 @@ export function SiteHeader({ locale, nav }: { locale: Locale; nav: Dictionary["n
             <Link
               key={item.key}
               href={localizedHref(locale, item.href)}
+              onClick={closeMenu}
               className="rounded-lg px-3 py-3 text-lg font-semibold text-white hover:bg-white/5"
             >
               {nav[item.key]}
             </Link>
           ))}
-          <Link href={localizedHref(locale, "/contact")} className="rounded-lg px-3 py-3 text-lg font-semibold text-white hover:bg-white/5">
+          <Link href={localizedHref(locale, "/contact")} onClick={closeMenu} className="rounded-lg px-3 py-3 text-lg font-semibold text-white hover:bg-white/5">
             {nav.contact}
           </Link>
           <div className="mt-6 flex flex-col gap-3 border-t border-line pt-6">
-            <LinkButton href={localizedHref(locale, "/contact")} size="lg">{nav.getStarted}</LinkButton>
-            <LinkButton href={localizedHref(locale, "/login")} variant="secondary" size="lg">{nav.login}</LinkButton>
+            <LinkButton href={localizedHref(locale, "/contact")} onClick={closeMenu} size="lg">{nav.getStarted}</LinkButton>
+            <LinkButton href={localizedHref(locale, "/login")} onClick={closeMenu} variant="secondary" size="lg">{nav.login}</LinkButton>
             <LanguageSwitcher locale={locale} label={nav.language} className="justify-center" />
           </div>
         </Container>

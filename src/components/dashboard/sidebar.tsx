@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { toolIcons } from "@/components/site/icons";
@@ -13,8 +14,9 @@ import { aiTools } from "@/lib/ai/tools";
 import { cn } from "@/lib/utils";
 
 type Props = { locale: Locale; t: Dictionary["dashboard"]; tools: Dictionary["aiTools"]; role?: Role };
+type NavProps = Props & { onNavigate?: () => void };
 
-function NavContent({ locale, t, tools, role }: Props) {
+function NavContent({ locale, t, tools, role, onNavigate }: NavProps) {
   const pathname = usePathname() ?? "";
   const isActive = (href: string) => {
     const full = localizedHref(locale, href);
@@ -36,7 +38,7 @@ function NavContent({ locale, t, tools, role }: Props) {
               const active = isActive(item.href);
               return (
                 <li key={item.key}>
-                  <Link href={localizedHref(locale, item.href)} aria-current={active ? "page" : undefined} className={linkCls(active)}>
+                  <Link href={localizedHref(locale, item.href)} onClick={onNavigate} aria-current={active ? "page" : undefined} className={linkCls(active)}>
                     <item.icon className={cn("size-4.5 shrink-0", active ? "text-blue-300" : "text-ink-subtle group-hover:text-white")} aria-hidden />
                     {t.nav[item.key]}
                   </Link>
@@ -48,7 +50,7 @@ function NavContent({ locale, t, tools, role }: Props) {
                         const a = isActive(href);
                         return (
                           <li key={tool.key}>
-                            <Link href={localizedHref(locale, href)} aria-current={a ? "page" : undefined}
+                            <Link href={localizedHref(locale, href)} onClick={onNavigate} aria-current={a ? "page" : undefined}
                               className={cn("flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors", a ? "bg-white/5 text-white" : "text-ink-subtle hover:text-white")}>
                               <Icon className={cn("size-3.5 shrink-0", a && "text-yellow")} aria-hidden />
                               <span className="truncate">{tools[tool.key].name}</span>
@@ -79,33 +81,69 @@ export function Sidebar(props: Props) {
   );
 }
 
-/** Mobile trigger + drawer — rendered inside the dashboard top bar. */
+/**
+ * Mobile trigger + drawer. The trigger lives in the dashboard top bar, but
+ * the drawer is portalled to <body>: the top bar uses `backdrop-filter`,
+ * which makes it the containing block for `position: fixed` descendants and
+ * would clip the drawer to the bar's height.
+ */
 export function MobileSidebar(props: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+
+  // Close when the route changes (e.g. browser back/forward).
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setOpen(false), [pathname]);
 
+  useEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const { overflow } = document.body.style;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      window.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
+  }, [open]);
+
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-label={props.t.title} aria-expanded={open}
-        className="inline-flex size-10 items-center justify-center rounded-lg text-white hover:bg-white/5 lg:hidden">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={props.t.title}
+        aria-expanded={open}
+        aria-controls="dashboard-drawer"
+        className="inline-flex size-10 items-center justify-center rounded-lg text-white hover:bg-white/5 lg:hidden"
+      >
         <Menu className="size-5" aria-hidden />
       </button>
-      {open && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label={props.t.title}>
-          <button type="button" aria-label="Close" className="absolute inset-0 bg-navy/70 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 start-0 flex w-72 max-w-[85vw] flex-col border-e border-line bg-surface-1">
-            <div className="flex h-16 items-center justify-between border-b border-line px-5">
-              <Logo />
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="inline-flex size-9 items-center justify-center rounded-lg hover:bg-white/5">
-                <X className="size-5" aria-hidden />
-              </button>
+      {open &&
+        createPortal(
+          <div id="dashboard-drawer" className="fixed inset-0 z-50 h-dvh lg:hidden" role="dialog" aria-modal="true" aria-label={props.t.title}>
+            <button type="button" tabIndex={-1} aria-hidden className="absolute inset-0 h-full w-full animate-fade-in bg-navy/75 backdrop-blur-sm" onClick={close} />
+            <div className="absolute inset-y-0 start-0 flex h-dvh w-72 max-w-[85vw] animate-drawer-in flex-col border-e border-line bg-surface-1 shadow-(--shadow-card) rtl:animate-drawer-in-rtl">
+              <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-5">
+                <Logo />
+                <button ref={closeRef} type="button" onClick={close} aria-label={props.t.crud.close} className="inline-flex size-9 items-center justify-center rounded-lg hover:bg-white/5">
+                  <X className="size-5" aria-hidden />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-6">
+                <NavContent {...props} onNavigate={close} />
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-3 py-6"><NavContent {...props} /></div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
