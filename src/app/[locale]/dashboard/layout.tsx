@@ -6,7 +6,8 @@ import { localizedHref } from "@/i18n/config";
 import { signOut } from "@/lib/auth/actions";
 import { isDashboardPreview, isSupabaseConfigured } from "@/lib/env";
 import { loadPage } from "@/lib/page";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { StatusBadge } from "@/components/dashboard/crud/status-badge";
+import { getCurrentProfile, getCurrentUser } from "@/lib/supabase/server";
 
 // Auth-gated: always render per request, never prerender.
 export const dynamic = "force-dynamic";
@@ -21,14 +22,18 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
   const user = await getCurrentUser();
   if (isSupabaseConfigured ? !user : !isDashboardPreview) redirect(localizedHref(locale, "/login"));
 
-  const initials = (user?.email ?? "PM").slice(0, 2).toUpperCase();
+  const profile = await getCurrentProfile();
+  // Preview mode (no Supabase in development) shows the full admin menu.
+  const role = profile?.role ?? (isDashboardPreview ? "admin" : "client");
+  const display = profile?.full_name || profile?.email || "POWER MEDIA";
+  const initials = display.replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "PM";
 
   return (
     <div className="min-h-dvh bg-surface-0">
-      <Sidebar locale={locale} t={t} tools={dict.aiTools} />
+      <Sidebar locale={locale} t={t} tools={dict.aiTools} role={role} />
       <div className="lg:ps-68">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-navy/80 px-4 backdrop-blur-xl sm:px-6">
-          <MobileSidebar locale={locale} t={t} tools={dict.aiTools} />
+          <MobileSidebar locale={locale} t={t} tools={dict.aiTools} role={role} />
           <p className="flex-1 truncate text-sm text-ink-subtle">{t.title}</p>
           <LanguageSwitcher locale={locale} label={dict.nav.language} />
           {user && (
@@ -39,6 +44,12 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
                 <span className="hidden sm:inline">{t.signOut}</span>
               </button>
             </form>
+          )}
+          {profile && (
+            <div className="hidden text-end sm:block">
+              <p className="max-w-40 truncate text-sm font-medium leading-tight">{display}</p>
+              <StatusBadge value={role} label={t.roles[role]} />
+            </div>
           )}
           <span aria-hidden className="inline-flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-blue to-blue-700 text-xs font-bold">{initials}</span>
         </header>

@@ -5,15 +5,16 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { toolIcons } from "@/components/site/icons";
-import { dashboardNav } from "@/config/dashboard";
+import { navForRole } from "@/config/dashboard";
+import type { Role } from "@/config/modules";
 import { localizedHref, type Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/dictionaries/en";
 import { aiTools } from "@/lib/ai/tools";
 import { cn } from "@/lib/utils";
 
-type Props = { locale: Locale; t: Dictionary["dashboard"]; tools: Dictionary["aiTools"] };
+type Props = { locale: Locale; t: Dictionary["dashboard"]; tools: Dictionary["aiTools"]; role?: Role };
 
-function NavContent({ locale, t, tools }: Props) {
+function NavContent({ locale, t, tools, role }: Props) {
   const pathname = usePathname() ?? "";
   const isActive = (href: string) => {
     const full = localizedHref(locale, href);
@@ -27,7 +28,7 @@ function NavContent({ locale, t, tools }: Props) {
 
   return (
     <nav aria-label={t.title} className="flex flex-col gap-6">
-      {dashboardNav.map((group) => (
+      {navForRole(role).map((group) => (
         <div key={group.group}>
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">{t.groups[group.group]}</p>
           <ul className="space-y-0.5">

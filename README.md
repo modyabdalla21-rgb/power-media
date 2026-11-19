@@ -49,19 +49,52 @@ Open http://localhost:3000. You will be redirected to `/en` or `/ar` based on yo
 | `npm start` | Serve the production build |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript check |
+| `npm run i18n:check` | Strict English/Arabic dictionary parity |
+| `npm run check` | i18n + lint + typecheck |
 
 ### Dashboard preview without Supabase
 
-In development, if Supabase isn't configured, the dashboard opens in **preview mode**. A banner shows at the top and no data is stored. To turn preview mode off, set `DASHBOARD_PREVIEW_MODE=false`. In production, preview mode is always off and unauthenticated users are redirected to `/[locale]/login`.
+In development, if Supabase isn't configured, the dashboard opens in **preview mode** with a banner, and nothing is stored. Set `DASHBOARD_PREVIEW_MODE=false` to turn it off. In production, preview mode is always off.
 
-### Connecting Supabase
+## Supabase setup
 
-1. Create a Supabase project.
-2. Put `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local`.
-3. Apply `supabase/migrations/0001_initial_schema.sql`, either with `supabase db push` or by pasting it into the SQL editor.
-4. Create a user in Supabase Auth, then set that user's `profiles.role` to `admin`.
+1. **Environment variables** (Vercel → Settings → Environment Variables, or `.env.local`):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `sb_publishable_…` key (a legacy anon JWT also works)
+   - `SUPABASE_SERVICE_ROLE_KEY`: the `sb_secret_…` key, server only. It's needed to send team invite emails and to remove members.
+2. **Database**: paste `supabase/migrations/0001_initial_schema.sql` into the Supabase SQL Editor and run it. The script is idempotent, so it's safe to run again.
+3. **Make yourself admin**: sign up on the site, confirm your email, then run:
+   ```sql
+   update public.profiles set role = 'admin' where email = 'you@example.com';
+   ```
+4. **Auth URLs** (Authentication → URL Configuration):
+   - Site URL: `https://<your-domain>`
+   - Redirect URLs: `https://<your-domain>/**` (add `http://localhost:3000/**` for local development)
+5. **Email templates** (recommended, Authentication → Email Templates). Use token-hash links so they work even when opened in a different browser:
+   - Confirm signup: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/en/dashboard`
+   - Invite user: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite&next=/en/reset-password`
+   - Reset password: `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery&next=/en/reset-password`
 
-Once this is done, sign-in works, the dashboard requires a session, and the contact form stores leads in `public.leads`.
+   The default templates also work: `/auth/callback` handles `?code=` links, and `/[locale]/auth-complete` handles links that carry the session in the URL fragment.
+
+### Roles
+
+| Role | Access |
+|---|---|
+| `admin` | Everything: team and invites, revenue, invoices, delete clients and leads |
+| `team` | Leads, clients, projects, campaigns, tasks, reports, POWER AI |
+| `client` | Read-only portal: their own projects, campaigns, published reports and non-draft invoices |
+
+New sign-ups are `client`. Admins invite staff from **Dashboard → Team**. The role comes from `team_invites`, never from sign-up metadata, and role changes are guarded by a database trigger. To give a client portal access, edit the client record and set **Client portal user**.
+
+### Auth routes
+
+| Route | Purpose |
+|---|---|
+| `/[locale]/login`, `/signup`, `/forgot-password` | Guest-only pages. Signed-in users are redirected to the dashboard. |
+| `/[locale]/reset-password` | Set a new password (after a recovery or invite link) |
+| `/auth/callback` | Email-link handler (PKCE code or token hash) |
+| `/[locale]/auth-complete` | Completes links that return tokens in the URL fragment |
 
 ## Project structure
 
@@ -77,10 +110,12 @@ src/
 │   └── [locale]/
 │       ├── layout.tsx          # <html lang dir>, fonts, metadata
 │       ├── (site)/…            # Public website pages
-│       ├── (auth)/login/       # Sign-in
+│       ├── (auth)/             # login, signup, forgot/reset password, auth-complete
 │       └── dashboard/
 │           ├── page.tsx        # Overview
-│           ├── [module]/       # Generic module view (clients, projects, …)
+│           ├── [module]/       # Config-driven CRUD (leads, clients, projects, campaigns, tasks, reports, invoices)
+│           ├── team/           # Members, roles, invitations (admin)
+│           ├── revenue/        # MRR, paid & outstanding by currency (admin)
 │           ├── settings/
 │           └── ai/[tool]/      # POWER AI tool workspaces
 ├── components/
@@ -89,14 +124,16 @@ src/
 │   ├── site/                   # Header, footer, CTA band, page hero, contact & login forms
 │   ├── dashboard/              # Sidebar, PageHeader, StatCard, DataTable, EmptyState, Panel
 │   └── ai/                     # ToolWorkspace (form → API → output)
-├── config/                     # site, navigation, dashboard nav, pricing
+├── config/                     # site, navigation, pricing, dashboard nav, CRUD module definitions
 ├── content/                    # Portfolio & testimonials (real, approved entries only)
 ├── i18n/                       # Locale config + en/ar dictionaries (typed)
 └── lib/
     ├── env.ts / env.server.ts  # Public vs server-only env access
     ├── supabase/               # Browser, server and proxy clients
     ├── ai/                     # Tool registry (schemas, prompts) + provider abstraction
-    ├── auth/actions.ts         # signIn / signOut server actions
+    ├── auth/                   # sign in/up/out, password reset actions, safe redirects
+    ├── crud/                   # Generic CRUD validation, server actions, queries
+    ├── team/                   # Invites, role changes, member removal, profile
     └── validation/             # Zod schemas
 supabase/migrations/            # SQL schema with RLS policies
 ```
@@ -133,7 +170,7 @@ The site doesn't publish invented testimonials, clients, results or prices:
 ## Roadmap
 
 - [x] **Phase 1**: design system, public website, navigation, responsive and RTL layouts, dashboard foundation, AI tool interfaces
-- [ ] **Phase 2**: Supabase auth flows (sign-up, reset, invites), role-based UI, CRUD for clients, projects, campaigns, tasks, team and invoices
+- [x] **Phase 2**: Supabase auth (sign-up, sign-in, reset, invites), roles with RLS, live contact leads, CRUD dashboard, live KPIs and revenue
 - [ ] **Phase 3**: AI provider adapters in `lib/ai/provider.ts` (streaming, usage logging to `ai_generations`, rate limiting, brand profiles)
 - [ ] **Phase 4**: subscriptions and payments (Stripe plus Paymob, Moyasar or Tap for local methods), client portal
 - [ ] **Phase 5**: tests (unit + Playwright), security review, CSP, performance, deployment (Vercel + Supabase)

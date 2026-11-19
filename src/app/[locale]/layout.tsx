@@ -8,7 +8,7 @@ import "@fontsource/ibm-plex-sans-arabic/700.css";
 import "../globals.css";
 import { isLocale, localeMeta, locales } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
-import { publicEnv } from "@/lib/env";
+import { metadataBaseUrl } from "@/lib/env";
 
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
   if (!isLocale(locale)) return {};
   const dict = await getDictionary(locale);
   return {
-    metadataBase: new URL(publicEnv.siteUrl),
+    metadataBase: new URL(metadataBaseUrl),
     title: { default: dict.meta.title, template: `%s · POWER MEDIA` },
     description: dict.meta.description,
     alternates: { canonical: `/${locale}`, languages: { en: "/en", ar: "/ar" } },

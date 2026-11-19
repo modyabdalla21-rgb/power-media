@@ -1,43 +1,50 @@
 import {
-  BarChart3, Bot, Briefcase, FileText, FolderKanban, LayoutDashboard, ListChecks, Megaphone,
-  Settings, Users, UsersRound, Wallet, type LucideIcon,
+  BarChart3, Bot, Briefcase, FileText, FolderKanban, Inbox, LayoutDashboard, ListChecks, Megaphone,
+  Settings, UsersRound, Wallet, type LucideIcon,
 } from "lucide-react";
+import { ALL, STAFF, modules, type ModuleKey, type Role } from "@/config/modules";
 import type { Dictionary } from "@/i18n/dictionaries/en";
 
 export type DashboardNavKey = keyof Dictionary["dashboard"]["nav"];
-export type ModuleKey = keyof Dictionary["dashboard"]["modules"];
-
-export const moduleKeys = ["clients", "projects", "campaigns", "tasks", "team", "reports", "revenue", "invoices"] as const satisfies readonly ModuleKey[];
-
-export const dashboardNav: {
-  group: keyof Dictionary["dashboard"]["groups"];
-  items: { key: DashboardNavKey; href: string; icon: LucideIcon }[];
-}[] = [
-  {
-    group: "agency",
-    items: [
-      { key: "overview", href: "/dashboard", icon: LayoutDashboard },
-      { key: "clients", href: "/dashboard/clients", icon: Briefcase },
-      { key: "projects", href: "/dashboard/projects", icon: FolderKanban },
-      { key: "campaigns", href: "/dashboard/campaigns", icon: Megaphone },
-      { key: "tasks", href: "/dashboard/tasks", icon: ListChecks },
-      { key: "team", href: "/dashboard/team", icon: UsersRound },
-      { key: "reports", href: "/dashboard/reports", icon: BarChart3 },
-      { key: "revenue", href: "/dashboard/revenue", icon: Wallet },
-      { key: "invoices", href: "/dashboard/invoices", icon: FileText },
-    ],
-  },
-  { group: "ai", items: [{ key: "aiHub", href: "/dashboard/ai", icon: Bot }] },
-  { group: "system", items: [{ key: "settings", href: "/dashboard/settings", icon: Settings }] },
-];
 
 export const moduleIcons: Record<ModuleKey, LucideIcon> = {
   clients: Briefcase,
   projects: FolderKanban,
   campaigns: Megaphone,
   tasks: ListChecks,
-  team: Users,
   reports: BarChart3,
-  revenue: Wallet,
   invoices: FileText,
+  leads: Inbox,
 };
+
+type NavItem = { key: DashboardNavKey; href: string; icon: LucideIcon; roles: readonly Role[] };
+
+const ADMIN: readonly Role[] = ["admin"];
+const mod = (key: ModuleKey): NavItem => ({ key, href: `/dashboard/${key}`, icon: moduleIcons[key], roles: modules[key].roles.view });
+
+/** Sidebar navigation. Items are filtered by the signed-in user's role. */
+export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; items: NavItem[] }[] = [
+  {
+    group: "agency",
+    items: [
+      { key: "overview", href: "/dashboard", icon: LayoutDashboard, roles: ALL },
+      mod("leads"),
+      mod("clients"),
+      mod("projects"),
+      mod("campaigns"),
+      mod("tasks"),
+      mod("reports"),
+      { key: "team", href: "/dashboard/team", icon: UsersRound, roles: ADMIN },
+      { key: "revenue", href: "/dashboard/revenue", icon: Wallet, roles: ADMIN },
+      mod("invoices"),
+    ],
+  },
+  { group: "ai", items: [{ key: "aiHub", href: "/dashboard/ai", icon: Bot, roles: STAFF }] },
+  { group: "system", items: [{ key: "settings", href: "/dashboard/settings", icon: Settings, roles: ALL }] },
+];
+
+export function navForRole(role: Role | undefined) {
+  return dashboardNav
+    .map((g) => ({ ...g, items: g.items.filter((i) => !!role && i.roles.includes(role)) }))
+    .filter((g) => g.items.length > 0);
+}
