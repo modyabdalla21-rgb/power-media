@@ -20,12 +20,12 @@ export default async function ResetPasswordPage({ params }: PageProps<"/[locale]
       dict={dict}
       title={t.resetTitle}
       subtitle={user?.email ? `${t.resetSubtitle} (${user.email})` : t.resetSubtitle}
-      footer={<Link href={localizedHref(locale, "/login")} className="font-medium text-blue-300 hover:text-white">{t.backToSignIn}</Link>}
+      footer={<Link href={localizedHref(locale, "/login")} className="inline-flex min-h-10 items-center font-medium text-blue-300 hover:text-white">{t.backToSignIn}</Link>}
     >
       {isSupabaseConfigured && !user ? (
         <>
           <Notice tone="warn">{t.resetNoSession}</Notice>
-          <Link href={localizedHref(locale, "/forgot-password")} className="mt-4 inline-block text-sm font-medium text-blue-300 hover:text-white">{t.forgotTitle}</Link>
+          <Link href={localizedHref(locale, "/forgot-password")} className="mt-4 inline-flex min-h-10 items-center text-sm font-medium text-blue-300 hover:text-white">{t.forgotTitle}</Link>
         </>
       ) : (
         <ResetPasswordForm locale={locale} t={t} disabled={!isSupabaseConfigured} />

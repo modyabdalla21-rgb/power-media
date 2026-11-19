@@ -7,7 +7,7 @@ import { locales, localeMeta, switchLocalePath, type Locale } from "@/i18n/confi
 import { cn } from "@/lib/utils";
 
 /** English · العربية · مصري (Egyptian colloquial mode). */
-export function LanguageSwitcher({ locale, label, className }: { locale: Locale; label: string; className?: string }) {
+export function LanguageSwitcher({ locale, label, className, variant = "menu" }: { locale: Locale; label: string; className?: string; variant?: "menu" | "inline" }) {
   const pathname = usePathname() ?? `/${locale}`;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -24,6 +24,29 @@ export function LanguageSwitcher({ locale, label, className }: { locale: Locale;
     };
   }, [open]);
 
+  // Inside scrolling containers (mobile menu) a dropdown would be clipped: show all options inline.
+  if (variant === "inline") {
+    return (
+      <nav aria-label={label} className={cn("grid grid-cols-3 gap-2", className)}>
+        {locales.map((l) => (
+          <Link
+            key={l}
+            href={switchLocalePath(pathname, l)}
+            hrefLang={localeMeta[l].htmlLang}
+            lang={localeMeta[l].htmlLang}
+            aria-current={l === locale ? "true" : undefined}
+            className={cn(
+              "flex h-11 items-center justify-center rounded-(--radius-control) border text-sm font-medium transition-colors",
+              l === locale ? "border-blue/50 bg-blue/15 text-white" : "border-line-strong text-ink-muted hover:text-white",
+            )}
+          >
+            {localeMeta[l].label}
+          </Link>
+        ))}
+      </nav>
+    );
+  }
+
   return (
     <div ref={ref} className={cn("relative inline-flex", className)}>
       <button
@@ -32,7 +55,7 @@ export function LanguageSwitcher({ locale, label, className }: { locale: Locale;
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`${label}: ${localeMeta[locale].label}`}
-        className="inline-flex h-9 items-center gap-1.5 rounded-(--radius-control) px-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-white/5 hover:text-white"
+        className="inline-flex h-10 items-center gap-1.5 rounded-(--radius-control) px-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-white/5 hover:text-white"
       >
         <Languages className="size-4" aria-hidden />
         {localeMeta[locale].label}
@@ -50,7 +73,7 @@ export function LanguageSwitcher({ locale, label, className }: { locale: Locale;
                 dir={localeMeta[l].dir}
                 aria-current={l === locale ? "true" : undefined}
                 onClick={() => setOpen(false)}
-                className={cn("flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-white/5", l === locale ? "text-white" : "text-ink-muted")}
+                className={cn("flex min-h-11 items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-white/5", l === locale ? "text-white" : "text-ink-muted")}
               >
                 {localeMeta[l].label}
                 {l === locale && <Check className="size-4 text-blue-300" aria-hidden />}

@@ -33,7 +33,7 @@ export default async function OnboardingPage({ params }: PageProps<"/[locale]/da
         ))}
       </ol>
       <div className="surface-card p-6 sm:p-8">
-        <BrandProfileForm mode="onboarding" d={dict.dashboard} locale={locale} values={workspace} />
+        <BrandProfileForm mode="onboarding" d={dict.dashboard} locale={locale} values={workspace} clientId={workspace.id} />
       </div>
     </div>
   );

@@ -9,7 +9,9 @@ import { EmptyState, PageHeader, Panel } from "@/components/dashboard/primitives
 import { StatusBadge } from "@/components/dashboard/crud/status-badge";
 import { LinkButton } from "@/components/ui/button";
 import { localizedHref } from "@/i18n/config";
-import { BRAND_KIT_COLUMNS, getClientWorkspace, type BrandKit } from "@/lib/client/workspace";
+import { BRAND_KIT_COLUMNS, getClientWorkspace, listBrandAssets, resolveKitLogo, type BrandKit } from "@/lib/client/workspace";
+import { AssetUploader } from "@/components/client/asset-uploader";
+import { RemoveAssetButton } from "@/components/client/asset-remove";
 import { formatDate } from "@/lib/format";
 import { loadPage } from "@/lib/page";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -31,6 +33,12 @@ export default async function BrandPage({ params }: PageProps<"/[locale]/dashboa
   const kits = (data ?? []) as BrandKit[];
   const active = kits.find((k) => k.is_active) ?? null;
   const others = kits.filter((k) => !k.is_active);
+  const [activeLogo, otherLogos, assets] = await Promise.all([
+    resolveKitLogo(supabase, active),
+    Promise.all(others.map((k) => resolveKitLogo(supabase, k))),
+    listBrandAssets(supabase, workspace.id),
+  ]);
+  const references = assets.filter((a) => a.kind === "reference");
   const identityHref = localizedHref(locale, "/dashboard/ai/brand-identity");
 
   return (
@@ -45,7 +53,7 @@ export default async function BrandPage({ params }: PageProps<"/[locale]/dashboa
         {active ? (
           <div className="grid gap-6 p-5 lg:grid-cols-3">
             <div className="space-y-3">
-              <SvgLogo svg={active.logo_svg} url={active.logo_url} alt={active.name} className="aspect-square w-full max-w-60" />
+              <SvgLogo svg={activeLogo.svg} url={activeLogo.url} alt={active.name} className="aspect-square w-full max-w-60" />
               <p className="font-semibold">{active.name}</p>
               {active.tagline && <p className="text-sm text-blue-300">{active.tagline}</p>}
               {active.positioning && <p className="text-sm leading-relaxed text-ink-muted">{active.positioning}</p>}
@@ -84,12 +92,44 @@ export default async function BrandPage({ params }: PageProps<"/[locale]/dashboa
         )}
       </Panel>
 
+      <Panel title={b.assetsTitle}>
+        <div className="grid gap-6 p-5 lg:grid-cols-2">
+          <div className="space-y-3">
+            <p className="text-sm leading-relaxed text-ink-muted">{b.assetsBody}</p>
+            <AssetUploader clientId={workspace.id} kind="logo" t={b} kitName={b.existingKitName} />
+            <Link href={identityHref} className="inline-flex min-h-10 items-center text-xs text-blue-300 hover:text-white">{b.generateInstead} →</Link>
+          </div>
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold">{b.referencesTitle}</h3>
+            <AssetUploader clientId={workspace.id} kind="reference" t={b} />
+            {references.length ? (
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {references.map((a) => (
+                  <li key={a.id} className="group relative overflow-hidden rounded-xl border border-line">
+                    {a.url ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- signed URL from private storage
+                      <img src={a.url} alt={a.caption ?? a.file_name ?? ""} className="aspect-square w-full bg-white object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="aspect-square w-full bg-white/5" />
+                    )}
+                    {(a.caption || a.file_name) && <p className="truncate px-2 py-1.5 text-xs text-ink-muted">{a.caption ?? a.file_name}</p>}
+                    <div className="absolute end-1.5 top-1.5"><RemoveAssetButton assetId={a.id} label={b.removeAsset} /></div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-ink-subtle">{b.noReferences}</p>
+            )}
+          </div>
+        </div>
+      </Panel>
+
       {others.length > 0 && (
         <Panel title={b.otherKits}>
           <ul className="divide-y divide-line">
-            {others.map((k) => (
+            {others.map((k, i) => (
               <li key={k.id} className="flex items-center gap-4 px-5 py-3">
-                <SvgLogo svg={k.logo_svg} url={k.logo_url} alt={k.name} className="size-12 shrink-0" />
+                <SvgLogo svg={otherLogos[i].svg} url={otherLogos[i].url} alt={k.name} className="size-12 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{k.name}</p>
                   <p className="text-xs text-ink-subtle">{formatDate(k.created_at, locale)}</p>
@@ -106,7 +146,7 @@ export default async function BrandPage({ params }: PageProps<"/[locale]/dashboa
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Panel title={b.profileTitle} className="lg:col-span-2">
-          <div className="p-5"><BrandProfileForm mode="profile" d={d} locale={locale} values={workspace} /></div>
+          <div className="p-5"><BrandProfileForm mode="profile" d={d} locale={locale} values={workspace} clientId={workspace.id} /></div>
         </Panel>
         <div className="surface-card h-fit space-y-3 p-5">
           <h2 className="font-semibold">{b.helpTitle}</h2>

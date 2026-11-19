@@ -25,7 +25,7 @@ export function AuthShell({ locale, dict, title, subtitle, children, footer, not
         <LanguageSwitcher locale={locale} label={dict.nav.language} />
       </div>
       <main id="main" className="relative w-full max-w-md">
-        <Link href={localizedHref(locale, "/")} className="mx-auto mb-10 flex w-fit"><Logo /></Link>
+        <Link href={localizedHref(locale, "/")} className="mx-auto mb-10 flex min-h-11 w-fit items-center"><Logo /></Link>
         <div className="surface-card p-8">
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-2 text-sm leading-relaxed text-ink-muted">{subtitle}</p>}
@@ -35,7 +35,7 @@ export function AuthShell({ locale, dict, title, subtitle, children, footer, not
           {footer && <div className="mt-6 border-t border-line pt-6 text-center text-sm text-ink-muted">{footer}</div>}
         </div>
         <p className="mt-8 text-center text-sm text-ink-subtle">
-          <Link href={localizedHref(locale, "/")} className="hover:text-white">{dict.common.backHome}</Link>
+          <Link href={localizedHref(locale, "/")} className="inline-flex min-h-10 items-center hover:text-white">{dict.common.backHome}</Link>
         </p>
       </main>
     </div>

@@ -8,7 +8,7 @@ import { renderCell } from "@/components/dashboard/crud/record-table";
 import { ModuleToolbar } from "@/components/dashboard/crud/toolbar";
 import type { ClientField, RecordValues } from "@/components/dashboard/crud/types";
 import { moduleIcons } from "@/config/dashboard";
-import { can, modulePath, type ModuleDef, type RelationSource } from "@/config/modules";
+import { can, columnsForRole, fieldsForRole, modulePath, type ModuleDef, type RelationSource, type Role } from "@/config/modules";
 import { localizedHref, type Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/dictionaries/en";
 import { deleteRecord } from "@/lib/crud/actions";
@@ -18,9 +18,9 @@ import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/se
 import { cn } from "@/lib/utils";
 
 /** Serializable client-form fields for a module (relation options resolved). */
-export function clientFields(def: ModuleDef, dict: Dictionary, relations: Partial<Record<RelationSource, { value: string; label: string }[]>>): ClientField[] {
+export function clientFields(def: ModuleDef, dict: Dictionary, relations: Partial<Record<RelationSource, { value: string; label: string }[]>>, role?: Role): ClientField[] {
   const opts = dict.dashboard.options;
-  return def.fields.map((f) => ({
+  return (role ? fieldsForRole(def, role) : def.fields).map((f) => ({
     column: f.column,
     label: dict.dashboard.fields[f.label],
     type: f.type,
@@ -87,14 +87,15 @@ export async function ModuleView({ def, locale, dict, searchParams }: {
   const canDelete = can(profile.role, def.roles.delete);
   const canWrite = canCreate || canUpdate;
 
-  const relationSources = def.fields.flatMap((f) => (f.relation ? [f.relation] : [])) as RelationSource[];
+  const relationSources = fieldsForRole(def, profile.role).flatMap((f) => (f.relation ? [f.relation] : [])) as RelationSource[];
   const [{ rows, error, count }, relations] = await Promise.all([
     listRecords(supabase, def, { q, status, page }),
     canWrite ? loadRelationOptions(supabase, relationSources) : Promise.resolve({} as Awaited<ReturnType<typeof loadRelationOptions>>),
   ]);
 
   const opts = dict.dashboard.options;
-  const fields = clientFields(def, dict, relations);
+  const fields = clientFields(def, dict, relations, profile.role);
+  const columns = columnsForRole(def, profile.role);
 
   const basePath = modulePath(def);
   const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
@@ -143,7 +144,7 @@ export async function ModuleView({ def, locale, dict, searchParams }: {
             <table className="w-full min-w-[760px] text-sm">
               <thead className="border-b border-line bg-white/[0.02]">
                 <tr>
-                  {def.columns.map((c) => (
+                  {columns.map((c) => (
                     <th key={c.label + c.kind} scope="col" className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-ink-subtle">
                       {dict.dashboard.fields[c.label]}
                     </th>
@@ -154,7 +155,7 @@ export async function ModuleView({ def, locale, dict, searchParams }: {
               <tbody className="divide-y divide-line">
                 {rows.map((row) => (
                   <tr key={row.id} className="transition-colors hover:bg-white/[0.02]">
-                    {def.columns.map((c) => (
+                    {columns.map((c) => (
                       <td key={c.label + c.kind} className="px-5 py-3.5 align-middle">{renderCell(c, row, dict, locale, localizedHref(locale, `${basePath}/${row.id}`))}</td>
                     ))}
                     {showActions && (

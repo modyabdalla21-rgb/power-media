@@ -39,7 +39,7 @@ export function ContactForm({ locale, t, services, defaultService }: {
   const id = (n: string) => `contact-${n}`;
 
   return (
-    <form onSubmit={onSubmit} className="surface-card grid gap-5 p-6 sm:grid-cols-2 sm:p-8" noValidate={false}>
+    <form onSubmit={onSubmit} className="surface-card relative grid gap-5 p-5 sm:grid-cols-2 sm:p-8" noValidate={false}>
       <Field label={t.name} htmlFor={id("name")} required>
         <Input id={id("name")} name="name" required minLength={2} maxLength={120} autoComplete="name" />
       </Field>
@@ -74,9 +74,9 @@ export function ContactForm({ locale, t, services, defaultService }: {
         <Textarea id={id("message")} name="message" required minLength={10} maxLength={4000} rows={5} />
       </Field>
       {/* Honeypot */}
-      <div aria-hidden className="absolute -start-[9999px] h-0 w-0 overflow-hidden">
+      <div aria-hidden className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0 [clip-path:inset(50%)]">
         <label htmlFor={id("website")}>Website</label>
-        <input id={id("website")} name="website" tabIndex={-1} autoComplete="off" />
+        <input id={id("website")} name="website" tabIndex={-1} autoComplete="off" className="h-px w-px" />
       </div>
 
       <div className="flex flex-col gap-4 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between">

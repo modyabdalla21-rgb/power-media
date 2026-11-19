@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SvgLogo } from "@/components/brand/brand-visuals";
-import { getActiveBrandKit, getClientWorkspace, getUsage, type Workspace } from "@/lib/client/workspace";
+import { getActiveBrandKit, getClientWorkspace, getUsage, resolveKitLogo, type Workspace } from "@/lib/client/workspace";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BarChart3, Briefcase, CalendarClock, CheckCircle2, FileText, FolderKanban, Inbox, ListChecks, Megaphone, Plus, Wallet } from "lucide-react";
 import { EmptyState, PageHeader, Panel, StatCard } from "@/components/dashboard/primitives";
@@ -200,7 +200,7 @@ async function ClientOverview({ supabase, dict, locale }: { supabase: SupabaseCl
     count(supabase, "campaigns", ["eq", "status", "active"]),
     count(supabase, "reports"),
     count(supabase, "invoices", ["in", "status", ["sent", "overdue"]]),
-    supabase.from("projects").select("id, name, stage, status, progress, due_date").order("created_at", { ascending: false }).limit(6),
+    supabase.from("projects").select("id, name, stage, status, progress, due_date, decision_status").order("created_at", { ascending: false }).limit(6),
   ]);
   const fmt = (n: number | null) => (n === null ? "—" : formatNumber(n, locale));
 
@@ -222,15 +222,17 @@ async function ClientOverview({ supabase, dict, locale }: { supabase: SupabaseCl
         {projectRows.data?.length ? (
           <ul className="divide-y divide-line">
             {projectRows.data.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-3.5 text-sm">
-                <div>
-                  <p className="font-medium">{p.name}</p>
-                  <p className="text-xs text-ink-subtle">{t.options[p.stage as keyof typeof t.options]} · {formatDate(p.due_date, locale)}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-blue" style={{ width: `${p.progress}%` }} /></div>
-                  <StatusBadge value={p.status} label={t.options[p.status as keyof typeof t.options]} />
-                </div>
+              <li key={p.id}>
+                <Link href={localizedHref(locale, `/dashboard/projects/${p.id}`)} className="flex flex-wrap items-center justify-between gap-4 px-5 py-3.5 text-sm hover:bg-white/[0.02]">
+                  <div>
+                    <p className="font-medium">{p.name}</p>
+                    <p className="text-xs text-ink-subtle">{t.options[p.stage as keyof typeof t.options]} · {formatDate(p.due_date, locale)}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge value={p.decision_status} label={t.options[p.decision_status as keyof typeof t.options] ?? p.decision_status} />
+                    <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-blue" style={{ width: `${p.progress}%` }} /></div>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
@@ -246,11 +248,12 @@ async function ClientOverview({ supabase, dict, locale }: { supabase: SupabaseCl
 async function WorkspaceSummary({ supabase, dict, locale, workspace, userId }: { supabase: SupabaseClient; dict: Dictionary; locale: Locale; workspace: Workspace; userId: string }) {
   const d = dict.dashboard;
   const [kit, usage] = await Promise.all([getActiveBrandKit(supabase, workspace.id), getUsage(supabase, userId, workspace)]);
+  const logo = await resolveKitLogo(supabase, kit);
   const clientTools = aiTools.filter((tool) => tool.access === "all");
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Link href={localizedHref(locale, "/dashboard/brand")} className="surface-card ring-glow-hover flex items-center gap-4 p-5">
-        <SvgLogo svg={kit?.logo_svg} url={kit?.logo_url} alt={kit?.name ?? workspace.name} className="size-16 shrink-0" />
+        <SvgLogo svg={logo.svg} url={logo.url} alt={kit?.name ?? workspace.name} className="size-16 shrink-0" />
         <div className="min-w-0">
           <p className="text-xs text-ink-subtle">{d.brand.kitTitle}</p>
           <p className="truncate font-semibold">{kit?.name ?? workspace.name}</p>

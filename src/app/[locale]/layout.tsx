@@ -41,8 +41,8 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   if (!isLocale(locale)) notFound();
   const { dir, htmlLang } = localeMeta[locale];
   return (
-    <html lang={htmlLang} dir={dir} className="scroll-smooth">
-      <body className="min-h-dvh overflow-x-hidden">{children}</body>
+    <html lang={htmlLang} dir={dir} className="scroll-smooth" data-scroll-behavior="smooth">
+      <body className="min-h-dvh">{children}</body>
     </html>
   );
 }

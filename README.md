@@ -62,7 +62,7 @@ In development, if Supabase isn't configured, the dashboard opens in **preview m
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `sb_publishable_…` key (a legacy anon JWT also works)
    - `SUPABASE_SERVICE_ROLE_KEY`: the `sb_secret_…` key, server only. It's needed to send team invite emails and to remove members.
-2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, `0002_power_ai.sql`, then `0003_client_self_serve.sql`. Each script is idempotent, so it's safe to run again.
+2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, `0002_power_ai.sql`, `0003_client_self_serve.sql`, then `0004_brand_assets_projects.sql`. Each script is idempotent, so it's safe to run again.
 3. **Make yourself admin**: sign up on the site, confirm your email, then run:
    ```sql
    update public.profiles set role = 'admin' where email = 'you@example.com';
@@ -119,6 +119,11 @@ Three tools live at `/[locale]/dashboard/ai`. They're for staff (`admin` and `te
 - **AI Logo & Brand Identity:** `/dashboard/ai/brand-identity` returns structured JSON with positioning, palette, typography, voice and three SVG logo concepts. Any concept can be applied as the active kit. SVGs are sanitised against an allow-list and only ever rendered through `<img>` data URIs.
 - **Plans:** `clients.plan_tier` (`free` / `growth` / `pro`), with limits in `src/config/plans.ts`. Usage is counted monthly from `ai_generations` and enforced before any AI call. At the limit, an upgrade modal creates a `client_requests` row. Staff handle requests in **Client requests** and change the tier in **Clients**. There's no payment gateway yet.
 - **Access:** clients can edit only their own workspace's brand fields (a trigger protects plan, status, retainer and notes), plus their own brand kits, generations and requests.
+
+## Brand assets & decision-ready projects
+
+- **Uploads:** clients upload an existing logo and visual references (PNG, JPG, WebP, GIF or SVG, up to 5 MB) from Brand Setup or the Brand page. Files go to the private Supabase Storage bucket `brand-assets` under `<client_id>/…`, and storage policies allow only agency staff and that client. Files are shown through short-lived signed URLs and only ever rendered as `<img>`. An uploaded logo becomes the active brand kit's logo (`brand_kits.logo_asset_id`), its dominant colors can be applied in one click, and reference captions are included in AI prompts.
+- **Projects:** each project has an objective, deliverables, priority and a decision (`pending` / `approved` / `changes_requested` / `on_hold`) with notes, and is linked to the brand kit in use. `/dashboard/projects/[id]` shows the decision panel, the project's brand identity and every AI output linked to it, with one-click "write copy" and "plan the campaign" actions pre-linked to the project. Clients can create and steer their own projects. A trigger keeps status, stage, progress and lead staff-only, and AI prompts include the project's objective, deliverables and decision notes.
 
 ## Egyptian mode (مصري)
 

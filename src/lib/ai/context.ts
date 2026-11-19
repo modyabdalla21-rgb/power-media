@@ -34,11 +34,19 @@ export async function loadContext(
   }
 
   if (opts.projectId) {
-    const { data: p } = await supabase.from("projects").select("name, client_id, stage, status, progress, due_date, description").eq("id", opts.projectId).maybeSingle();
+    const { data: p } = await supabase.from("projects").select("name, client_id, stage, status, progress, due_date, description, objective, deliverables, priority, decision_status, decision_notes").eq("id", opts.projectId).maybeSingle();
     if (p) {
       projectName = p.name;
       projectClientId = p.client_id;
-      parts.push(`Project: ${p.name} | stage: ${p.stage} | status: ${p.status} | progress: ${p.progress}% | due: ${v(p.due_date)}${p.description ? `\nProject description: ${String(p.description).slice(0, 1500)}` : ""}`);
+      parts.push(
+        [
+          `Project: ${p.name} | stage: ${p.stage} | status: ${p.status} | priority: ${p.priority} | progress: ${p.progress}% | due: ${v(p.due_date)}`,
+          p.objective ? `Project objective (optimise for this): ${String(p.objective).slice(0, 1200)}` : "",
+          p.deliverables ? `Project deliverables: ${String(p.deliverables).slice(0, 1500)}` : "",
+          `Client decision: ${p.decision_status}${p.decision_notes ? ` — notes (follow these): ${String(p.decision_notes).slice(0, 1200)}` : ""}`,
+          p.description ? `Project description: ${String(p.description).slice(0, 1500)}` : "",
+        ].filter(Boolean).join("\n"),
+      );
     }
   }
 

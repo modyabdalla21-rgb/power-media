@@ -86,7 +86,13 @@
   html {
     color-scheme: dark;
     -webkit-text-size-adjust: 100%;
+    /* clip (not hidden): stops sideways scroll on iOS without breaking sticky/fixed */
+    overflow-x: clip;
   }
+  body { overflow-x: clip; }
+  /* No 300ms delay / double-tap zoom on controls */
+  a, button, label, summary, select, input, textarea { touch-action: manipulation; }
+  dialog { overscroll-behavior: contain; }
   html[lang="ar"] {
     --font-sans: var(--font-arabic);
   }

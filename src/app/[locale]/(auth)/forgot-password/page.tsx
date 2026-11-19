@@ -16,7 +16,7 @@ export default async function ForgotPasswordPage({ params }: PageProps<"/[locale
       dict={dict}
       title={t.forgotTitle}
       subtitle={t.forgotSubtitle}
-      footer={<Link href={localizedHref(locale, "/login")} className="font-medium text-blue-300 hover:text-white">{t.backToSignIn}</Link>}
+      footer={<Link href={localizedHref(locale, "/login")} className="inline-flex min-h-10 items-center font-medium text-blue-300 hover:text-white">{t.backToSignIn}</Link>}
     >
       <ForgotPasswordForm locale={locale} t={t} disabled={!isSupabaseConfigured} />
     </AuthShell>

@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/dashboar
   return { title: def ? dict.aiTools[def.key].name : undefined };
 }
 
-export default async function AiToolPage({ params }: PageProps<"/[locale]/dashboard/ai/[tool]">) {
+export default async function AiToolPage({ params, searchParams }: PageProps<"/[locale]/dashboard/ai/[tool]">) {
   const { tool: slug } = await params;
   const { locale, dict } = await loadPage(params);
   const tool = getToolBySlug(slug);
@@ -40,20 +40,23 @@ export default async function AiToolPage({ params }: PageProps<"/[locale]/dashbo
   const kit = supabase && workspace ? await getActiveBrandKit(supabase, workspace.id) : null;
 
   // Staff link outputs to clients/projects (RLS-scoped); clients always work in their own workspace.
-  const [clients, projects] =
-    supabase && !isClient
-      ? await Promise.all([
-          supabase.from("clients").select("id, name").order("name").limit(500),
-          supabase.from("projects").select("id, name, client_id, client:clients(name)").order("name").limit(500),
-        ])
-      : [{ data: [] }, { data: [] }];
+  // RLS limits clients to their own projects.
+  const [clients, projects] = supabase
+    ? await Promise.all([
+        isClient ? Promise.resolve({ data: [] }) : supabase.from("clients").select("id, name").order("name").limit(500),
+        supabase.from("projects").select("id, name, client_id, client:clients(name)").order("name").limit(500),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const sp = await searchParams;
+  const requestedProject = typeof sp.project === "string" ? sp.project : undefined;
   const clientOptions = (clients.data ?? []).map((c) => ({ value: c.id as string, label: c.name as string }));
   const projectOptions = (projects.data ?? []).map((p) => {
     const client = (p.client as unknown as { name: string } | null)?.name;
-    return { value: p.id as string, label: client ? `${p.name} — ${client}` : (p.name as string), clientId: p.client_id as string };
+    return { value: p.id as string, label: client && !isClient ? `${p.name} — ${client}` : (p.name as string), clientId: p.client_id as string };
   });
 
   // Prefill from the client's brand profile.
+  const linkedProject = projectOptions.find((o) => o.value === requestedProject);
   const prefill: Record<string, string | null | undefined> = workspace
     ? {
         brand: workspace.name,
@@ -69,10 +72,12 @@ export default async function AiToolPage({ params }: PageProps<"/[locale]/dashbo
 
   // Only serialisable labels/options go to the client — prompts stay on the server.
   const fields: ClientToolField[] = tool.fields
-    .filter((f) => !isClient || (f.type !== "client" && f.type !== "project"))
+    // Clients never pick a client (it's their workspace) but may link one of their projects.
+    .filter((f) => !isClient || f.type !== "client")
     .map((f) => {
       const options = f.type === "client" ? clientOptions : f.type === "project" ? projectOptions : (f.options ?? []).map((o) => ({ value: o.value, label: o.label[cl] }));
-      const pre = prefill[f.name];
+      const pre =
+        f.type === "project" ? linkedProject?.value : f.type === "client" ? linkedProject?.clientId : prefill[f.name];
       const usable = pre && (f.type !== "select" || options.some((o) => o.value === pre));
       return {
         name: f.name,

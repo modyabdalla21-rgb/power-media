@@ -99,7 +99,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         <Container>
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <SectionHeading eyebrow={home.services.eyebrow} title={home.services.title} subtitle={home.services.subtitle} />
-            <Link href={href("/services")} className="group inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-blue-300 hover:text-white">
+            <Link href={href("/services")} className="group inline-flex min-h-11 shrink-0 items-center gap-2 text-sm font-semibold text-blue-300 hover:text-white">
               {dict.common.viewAll}
               <ArrowRight className="flip-rtl size-4 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" aria-hidden />
             </Link>
@@ -110,7 +110,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
                 <IconTile icon={serviceIcons[s.id]} />
                 <h3 className="mt-5 text-lg font-semibold">{s.title}</h3>
                 <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-muted">{s.body}</p>
-                <Link href={href(`/services#${s.id}`)} className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-blue-300 group-hover:text-white">
+                <Link href={href(`/services#${s.id}`)} className="mt-3 inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-blue-300 group-hover:text-white">
                   {dict.common.learnMore}
                   <ArrowUpRight className="flip-rtl size-4" aria-hidden />
                 </Link>

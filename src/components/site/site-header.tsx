@@ -52,7 +52,7 @@ export function SiteHeader({ locale, nav }: { locale: Locale; nav: Dictionary["n
         {nav.skipToContent}
       </a>
       <Container className="flex h-18 items-center justify-between gap-6">
-        <Link href={localizedHref(locale, "/")} aria-label={`POWER MEDIA — ${nav.home}`} className="shrink-0">
+        <Link href={localizedHref(locale, "/")} aria-label={`POWER MEDIA — ${nav.home}`} className="flex min-h-11 shrink-0 items-center">
           <Logo />
         </Link>
 
@@ -78,7 +78,7 @@ export function SiteHeader({ locale, nav }: { locale: Locale; nav: Dictionary["n
 
         <div className="hidden items-center gap-2 lg:flex">
           <LanguageSwitcher locale={locale} label={nav.language} />
-          <Link href={localizedHref(locale, "/login")} className="rounded-lg px-3 py-2 text-sm font-medium text-ink-muted hover:text-white">
+          <Link href={localizedHref(locale, "/login")} className="inline-flex min-h-10 items-center rounded-lg px-3 text-sm font-medium text-ink-muted hover:text-white">
             {nav.login}
           </Link>
           <LinkButton href={localizedHref(locale, "/contact")} size="sm">
@@ -88,7 +88,7 @@ export function SiteHeader({ locale, nav }: { locale: Locale; nav: Dictionary["n
 
         <button
           type="button"
-          className="inline-flex size-10 items-center justify-center rounded-lg text-white hover:bg-white/5 lg:hidden"
+          className="inline-flex size-11 items-center justify-center rounded-lg text-white hover:bg-white/5 lg:hidden"
           aria-expanded={open}
           aria-controls="mobile-nav"
           aria-label={open ? nav.close : nav.menu}
@@ -120,7 +120,7 @@ export function SiteHeader({ locale, nav }: { locale: Locale; nav: Dictionary["n
           <div className="mt-6 flex flex-col gap-3 border-t border-line pt-6">
             <LinkButton href={localizedHref(locale, "/contact")} onClick={closeMenu} size="lg">{nav.getStarted}</LinkButton>
             <LinkButton href={localizedHref(locale, "/login")} onClick={closeMenu} variant="secondary" size="lg">{nav.login}</LinkButton>
-            <LanguageSwitcher locale={locale} label={nav.language} className="justify-center" />
+            <LanguageSwitcher locale={locale} label={nav.language} variant="inline" />
           </div>
         </Container>
       </div>

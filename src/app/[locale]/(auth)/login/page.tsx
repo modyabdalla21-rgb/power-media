@@ -24,7 +24,7 @@ export default async function LoginPage({ params, searchParams }: PageProps<"/[l
       footer={
         <>
           {t.noAccount}{" "}
-          <Link href={localizedHref(locale, "/signup")} className="font-medium text-blue-300 hover:text-white">{t.signUpLink}</Link>
+          <Link href={localizedHref(locale, "/signup")} className="inline-flex min-h-10 items-center font-medium text-blue-300 hover:text-white">{t.signUpLink}</Link>
           {isDashboardPreview && (
             <div className="mt-6">
               <p className="text-xs text-ink-subtle">{t.previewHint}</p>

@@ -74,8 +74,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
   const workspace = isClient ? await getClientWorkspace() : null;
   if (isClient) {
     if (!workspace) return json({ code: "noWorkspace" }, 409);
-    raw.client_id = workspace.id;
-    delete raw.project_id;
+    raw.client_id = workspace.id; // a project, if given, must belong to it (checked below)
   }
 
   const { values, errors } = validate(tool, raw);
@@ -123,12 +122,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
   let brandContext = "";
   let brandKitName: string | null = null;
   if (supabase && values.client_id) {
-    const [{ data: brand }, kit] = await Promise.all([
+    const [{ data: brand }, kit, { data: assets }] = await Promise.all([
       supabase.from("clients").select(BRAND_COLUMNS).eq("id", values.client_id).maybeSingle(),
       // A new identity shouldn't copy the current one.
       tool.output === "identity" ? Promise.resolve(null) : getActiveBrandKit(supabase, values.client_id),
+      supabase.from("brand_assets").select("kind, file_name, caption").eq("client_id", values.client_id).order("created_at", { ascending: false }).limit(10),
     ]);
-    brandContext = brandContextText(brand, kit);
+    brandContext = brandContextText(brand, kit, assets ?? []);
     brandKitName = kit?.name ?? null;
   }
   const context = [brandContext, ctxData.text].filter(Boolean).join("\n\n");

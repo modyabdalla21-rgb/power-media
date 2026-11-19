@@ -33,7 +33,7 @@ export function HashSessionHandler({ next, loginHref, t }: { next: string; login
     return (
       <>
         <Notice tone="warn">{t.linkError}</Notice>
-        <Link href={loginHref} className="mt-4 inline-block text-sm font-medium text-blue-300 hover:text-white">{t.backToSignIn}</Link>
+        <Link href={loginHref} className="mt-4 inline-flex min-h-10 items-center text-sm font-medium text-blue-300 hover:text-white">{t.backToSignIn}</Link>
       </>
     );
   }

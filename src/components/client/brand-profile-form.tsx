@@ -4,6 +4,7 @@ import { CheckCircle2, Languages, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/form";
 import { saveBrandProfile, type BrandProfileState } from "@/lib/client/actions";
+import { AssetUploader } from "./asset-uploader";
 import { localeMeta, locales, type Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/dictionaries/en";
 import { cn } from "@/lib/utils";
@@ -21,11 +22,12 @@ export type BrandProfileValues = {
 };
 
 /** Brand profile — onboarding (with identity question) or edit mode. */
-export function BrandProfileForm({ mode, d, locale, values }: { mode: "onboarding" | "profile"; d: D; locale: Locale; values: BrandProfileValues }) {
+export function BrandProfileForm({ mode, d, locale, values, clientId }: { mode: "onboarding" | "profile"; d: D; locale: Locale; values: BrandProfileValues; clientId: string }) {
   const [state, action, pending] = useActionState<BrandProfileState, FormData>(saveBrandProfile, undefined);
   const [market, setMarket] = useState(values.market ?? "");
   const [uiLocale, setUiLocale] = useState<Locale>(locale);
   const [hasIdentity, setHasIdentity] = useState<"yes" | "no">("no");
+  const [colors, setColors] = useState("");
   const o = d.onboarding;
   const opts = d.options;
   const bad = new Set(state?.fields ?? []);
@@ -90,6 +92,20 @@ export function BrandProfileForm({ mode, d, locale, values }: { mode: "onboardin
             ))}
           </div>
           {hasIdentity === "yes" && (
+            <div className="space-y-1 pt-1">
+              <p className="text-sm font-medium text-ink-muted">{o.logoUpload}</p>
+              <p className="text-xs text-ink-subtle">{o.logoUploadHint}</p>
+              <AssetUploader
+                clientId={clientId}
+                kind="logo"
+                t={d.brand}
+                kitName={d.brand.existingKitName}
+                offerColors={false}
+                onUploaded={({ colors: detected }) => detected.length && !colors && setColors(detected.join(", "))}
+              />
+            </div>
+          )}
+          {hasIdentity === "yes" && (
             <div className="grid gap-4 pt-1 sm:grid-cols-2">
               <div>
                 <Label htmlFor="bp-logo">{o.logoUrl}</Label>
@@ -97,7 +113,7 @@ export function BrandProfileForm({ mode, d, locale, values }: { mode: "onboardin
               </div>
               <div>
                 <Label htmlFor="bp-colors">{o.colors}</Label>
-                <Input id="bp-colors" name="colors" dir="ltr" className="rtl:text-end" placeholder={o.colorsPlaceholder} />
+                <Input id="bp-colors" name="colors" dir="ltr" className="rtl:text-end" placeholder={o.colorsPlaceholder} value={colors} onChange={(e) => setColors(e.target.value)} />
               </div>
             </div>
           )}

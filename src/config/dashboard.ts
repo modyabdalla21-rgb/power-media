@@ -2,7 +2,7 @@ import {
   BarChart3, Bot, Briefcase, CreditCard, LifeBuoy, Library, Palette, FileText, FolderKanban, Inbox, LayoutDashboard, ListChecks, Megaphone,
   Settings, UsersRound, Wallet, type LucideIcon,
 } from "lucide-react";
-import { ALL, STAFF, genericModuleKeys, modules, type ModuleKey, type Role } from "@/config/modules";
+import { ALL, STAFF, genericModuleKeys, modulePath, modules, type ModuleKey, type Role } from "@/config/modules";
 import type { Dictionary } from "@/i18n/dictionaries/en";
 
 export type DashboardNavKey = keyof Dictionary["dashboard"]["nav"];
@@ -23,7 +23,7 @@ type NavItem = { key: DashboardNavKey; href: string; icon: LucideIcon; roles: re
 
 const ADMIN: readonly Role[] = ["admin"];
 const CLIENT: readonly Role[] = ["client"];
-const mod = (key: (typeof genericModuleKeys)[number]): NavItem => ({ key, href: `/dashboard/${key}`, icon: moduleIcons[key], roles: modules[key].roles.view });
+const mod = (key: (typeof genericModuleKeys)[number] | "projects"): NavItem => ({ key, href: modulePath(modules[key]), icon: moduleIcons[key], roles: modules[key].roles.view });
 
 /** Sidebar navigation. Items are filtered by the signed-in user's role. */
 export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; items: NavItem[] }[] = [

@@ -1,7 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { can, modules, type ModuleKey } from "@/config/modules";
+import { can, fieldsForRole, modules, type ModuleKey } from "@/config/modules";
+import { getClientWorkspace } from "@/lib/client/workspace";
 import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/server";
 import { parseRecord, type FieldError } from "./parse";
 
@@ -33,8 +34,15 @@ export async function saveRecord(_prev: CrudState, fd: FormData): Promise<CrudSt
   const profile = await getCurrentProfile();
   if (!can(profile?.role, mode === "create" ? def.roles.create : def.roles.update)) return { error: "forbidden" };
 
-  const parsed = parseRecord(def.fields, fd, mode);
+  // Only fields this role may edit are read from the form.
+  const parsed = parseRecord(fieldsForRole(def, profile?.role), fd, mode);
   if (!parsed.ok) return { fieldErrors: parsed.fieldErrors };
+  // Client-scoped modules: a client's new record always belongs to their own workspace.
+  if (mode === "create" && def.clientScoped && profile?.role === "client") {
+    const workspace = await getClientWorkspace();
+    if (!workspace) return { error: "forbidden" };
+    parsed.values.client_id = workspace.id;
+  }
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { error: "notConfigured" };

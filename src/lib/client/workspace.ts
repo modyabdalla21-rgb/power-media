@@ -33,12 +33,28 @@ export type BrandKit = {
   logo_url: string | null;
   logo_prompt: string | null;
   notes: string | null;
+  logo_asset_id: string | null;
   is_active: boolean;
   created_at: string;
 };
 
+export type BrandAsset = {
+  id: string;
+  kind: "logo" | "reference";
+  storage_path: string;
+  file_name: string | null;
+  mime_type: string;
+  caption: string | null;
+  created_at: string;
+  /** Short-lived signed URL (private bucket). */
+  url: string | null;
+};
+
+export const BRAND_BUCKET = "brand-assets";
+const SIGNED_URL_TTL = 60 * 60;
+
 const WORKSPACE_COLUMNS = "id, name, industry, market, audience, tone, dialect, website, brand_notes, plan_tier, source, onboarded_at";
-export const BRAND_KIT_COLUMNS = "id, client_id, name, source, tagline, positioning, palette, typography, voice, logo_svg, logo_url, logo_prompt, notes, is_active, created_at";
+export const BRAND_KIT_COLUMNS = "id, client_id, name, source, tagline, positioning, palette, typography, voice, logo_svg, logo_url, logo_prompt, notes, logo_asset_id, is_active, created_at";
 
 /**
  * The signed-in client's workspace, created on first access if missing
@@ -89,7 +105,11 @@ export async function getUsage(supabase: SupabaseClient, userId: string, workspa
 }
 
 /** Text block describing the brand for AI prompts (profile + active kit). */
-export function brandContextText(ws: Pick<Workspace, "name" | "industry" | "market" | "audience" | "tone" | "dialect" | "website" | "brand_notes"> | null, kit: BrandKit | null) {
+export function brandContextText(
+  ws: Pick<Workspace, "name" | "industry" | "market" | "audience" | "tone" | "dialect" | "website" | "brand_notes"> | null,
+  kit: BrandKit | null,
+  assets: { kind: string; file_name: string | null; caption: string | null }[] = [],
+) {
   const lines: string[] = [];
   if (ws) {
     lines.push(`Brand: ${ws.name}`);
@@ -110,6 +130,37 @@ export function brandContextText(ws: Pick<Workspace, "name" | "industry" | "mark
     if (kit.voice?.personality?.length) lines.push(`Personality: ${kit.voice.personality.join(", ")}`);
     if (kit.voice?.do?.length) lines.push(`Voice — do: ${kit.voice.do.join("; ")}`);
     if (kit.voice?.dont?.length) lines.push(`Voice — avoid: ${kit.voice.dont.join("; ")}`);
+    if (kit.logo_asset_id) lines.push("Logo: the client's own uploaded logo (keep creative directions compatible with it)");
   }
+  const refs = assets.filter((a) => a.kind === "reference" && (a.caption || a.file_name)).slice(0, 8);
+  if (refs.length) lines.push(`Visual references from the client: ${refs.map((a) => a.caption || a.file_name).join("; ")}`);
   return lines.length ? `Brand profile & identity (stay consistent with this):\n${lines.map((l) => `- ${l}`).join("\n")}` : "";
+}
+
+/** Brand assets for a client with signed URLs (RLS limits what can be read). */
+export async function listBrandAssets(supabase: SupabaseClient, clientId: string): Promise<BrandAsset[]> {
+  const { data } = await supabase
+    .from("brand_assets")
+    .select("id, kind, storage_path, file_name, mime_type, caption, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(40);
+  const rows = (data ?? []) as Omit<BrandAsset, "url">[];
+  if (!rows.length) return [];
+  const { data: signed } = await supabase.storage.from(BRAND_BUCKET).createSignedUrls(rows.map((r) => r.storage_path), SIGNED_URL_TTL);
+  const urls = new Map((signed ?? []).map((x) => [x.path, x.signedUrl]));
+  return rows.map((r) => ({ ...r, url: urls.get(r.storage_path) ?? null }));
+}
+
+/** How to show a kit's logo: uploaded file first, then AI SVG, then a link. */
+export async function resolveKitLogo(supabase: SupabaseClient, kit: Pick<BrandKit, "logo_asset_id" | "logo_svg" | "logo_url"> | null) {
+  if (!kit) return { svg: null as string | null, url: null as string | null };
+  if (kit.logo_asset_id) {
+    const { data: asset } = await supabase.from("brand_assets").select("storage_path").eq("id", kit.logo_asset_id).maybeSingle();
+    if (asset) {
+      const { data } = await supabase.storage.from(BRAND_BUCKET).createSignedUrl(asset.storage_path, SIGNED_URL_TTL);
+      if (data?.signedUrl) return { svg: null, url: data.signedUrl };
+    }
+  }
+  return { svg: kit.logo_svg, url: kit.logo_url };
 }

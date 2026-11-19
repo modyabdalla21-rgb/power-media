@@ -16,7 +16,7 @@ export default async function SignUpPage({ params }: PageProps<"/[locale]/signup
       dict={dict}
       title={t.signupTitle}
       subtitle={t.signupSubtitle}
-      footer={<>{t.haveAccount} <Link href={localizedHref(locale, "/login")} className="font-medium text-blue-300 hover:text-white">{t.signInLink}</Link></>}
+      footer={<>{t.haveAccount} <Link href={localizedHref(locale, "/login")} className="inline-flex min-h-10 items-center font-medium text-blue-300 hover:text-white">{t.signInLink}</Link></>}
     >
       <SignUpForm locale={locale} t={t} disabled={!isSupabaseConfigured} />
     </AuthShell>

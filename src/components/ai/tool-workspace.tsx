@@ -143,7 +143,7 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
     } else if (f.type === "project") {
       const visible = clientId ? f.options.filter((o) => o.clientId === clientId) : f.options;
       control = (
-        <Select {...common} key={clientId} defaultValue="">
+        <Select {...common} key={clientId} defaultValue={f.defaultValue && visible.some((o) => o.value === f.defaultValue) ? f.defaultValue : ""}>
           <option key="" value="">{t.selectNone}</option>
           {visible.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select>

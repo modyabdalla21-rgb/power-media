@@ -27,18 +27,22 @@ export type FieldDef = {
   /** Hidden in the create form (e.g. auto-generated invoice number). */
   hideOnCreate?: boolean;
   wide?: boolean;
+  /** Roles that see and edit this field in forms (default: everyone with access). */
+  roles?: readonly Role[];
 };
 
-export type ColumnDef =
-  | { kind: "text"; column: string; label: FieldLabel; strong?: boolean; secondary?: string; link?: boolean }
-  | { kind: "boolean"; column: string; label: FieldLabel }
-  | { kind: "option"; column: string; label: FieldLabel }
-  | { kind: "badge"; column: string; label: FieldLabel }
-  | { kind: "money"; column: string; currencyColumn: string; label: FieldLabel }
-  | { kind: "date"; column: string; label: FieldLabel }
-  | { kind: "dateRange"; column: string; endColumn: string; label: FieldLabel }
-  | { kind: "relation"; path: string; label: FieldLabel }
-  | { kind: "progress"; column: string; label: FieldLabel };
+type ColumnBase = { label: FieldLabel; /** Roles that see this column (default: all). */ roles?: readonly Role[] };
+export type ColumnDef = ColumnBase & (
+  | { kind: "text"; column: string; strong?: boolean; secondary?: string; link?: boolean }
+  | { kind: "boolean"; column: string }
+  | { kind: "option"; column: string }
+  | { kind: "badge"; column: string }
+  | { kind: "money"; column: string; currencyColumn: string }
+  | { kind: "date"; column: string }
+  | { kind: "dateRange"; column: string; endColumn: string }
+  | { kind: "relation"; path: string }
+  | { kind: "progress"; column: string }
+);
 
 export type ModuleDef = {
   key: ModuleKey;
@@ -52,6 +56,8 @@ export type ModuleDef = {
   roles: { view: readonly Role[]; create: readonly Role[]; update: readonly Role[]; delete: readonly Role[] };
   /** Dashboard path of the list (defaults to /dashboard/<key>). Rows link to `${path}/<id>` when a column has `link`. */
   path?: string;
+  /** Clients create records in their own workspace: client_id is set server-side. */
+  clientScoped?: boolean;
 };
 
 export const STAFF: readonly Role[] = ["admin", "team"];
@@ -105,29 +111,39 @@ export const modules: Record<ModuleKey, ModuleDef> = {
   projects: {
     key: "projects",
     table: "projects",
+    path: "/dashboard/projects",
+    clientScoped: true,
     select: "*, client:clients(name), lead:profiles!projects_lead_id_fkey(full_name, email)",
-    search: ["name", "description"],
+    search: ["name", "description", "objective", "deliverables", "decision_notes"],
     filter: { column: "status", options: ["active", "on_hold", "completed", "cancelled"] },
     order: { column: "created_at", ascending: false },
     fields: [
       { column: "name", label: "name", type: "text", required: true, max: 160 },
-      { column: "client_id", label: "client", type: "relation", relation: "clients", required: true },
-      { column: "stage", label: "stage", type: "select", required: true, options: ["discovery", "strategy", "production", "launch", "optimisation", "completed"], defaultValue: "discovery" },
-      { column: "status", label: "status", type: "select", required: true, options: ["active", "on_hold", "completed", "cancelled"], defaultValue: "active" },
+      { column: "client_id", label: "client", type: "relation", relation: "clients", required: true, roles: STAFF },
+      { column: "objective", label: "objective", type: "textarea", max: 2000, wide: true },
+      { column: "deliverables", label: "deliverables", type: "textarea", max: 4000, wide: true },
+      { column: "priority", label: "priority", type: "select", required: true, options: ["low", "medium", "high", "urgent"], defaultValue: "medium" },
       { column: "due_date", label: "dueDate", type: "date" },
-      { column: "progress", label: "progress", type: "number", min: 0, max: 100, defaultValue: "0" },
-      { column: "lead_id", label: "projectLead", type: "relation", relation: "staff" },
+      { column: "decision_status", label: "decisionStatus", type: "select", required: true, options: ["pending", "approved", "changes_requested", "on_hold"], defaultValue: "pending" },
+      { column: "decision_notes", label: "decisionNotes", type: "textarea", max: 4000, wide: true },
+      { column: "stage", label: "stage", type: "select", required: true, options: ["discovery", "strategy", "production", "launch", "optimisation", "completed"], defaultValue: "discovery", roles: STAFF },
+      { column: "status", label: "status", type: "select", required: true, options: ["active", "on_hold", "completed", "cancelled"], defaultValue: "active", roles: STAFF },
+      { column: "progress", label: "progress", type: "number", min: 0, max: 100, defaultValue: "0", roles: STAFF },
+      { column: "lead_id", label: "projectLead", type: "relation", relation: "staff", roles: STAFF },
       { column: "description", label: "description", type: "textarea", wide: true },
     ],
     columns: [
-      { kind: "text", column: "name", label: "name", strong: true },
-      { kind: "relation", path: "client", label: "client" },
+      { kind: "text", column: "name", label: "name", strong: true, link: true, secondary: "objective" },
+      { kind: "relation", path: "client", label: "client", roles: STAFF },
+      { kind: "badge", column: "priority", label: "priority" },
+      { kind: "badge", column: "decision_status", label: "decisionStatus" },
       { kind: "option", column: "stage", label: "stage" },
-      { kind: "badge", column: "status", label: "status" },
       { kind: "date", column: "due_date", label: "dueDate" },
       { kind: "progress", column: "progress", label: "progress" },
     ],
-    roles: { view: ALL, create: STAFF, update: STAFF, delete: STAFF },
+    // RLS: staff manage all; clients create/steer projects in their own
+    // workspace (agency fields trigger-protected) and delete only their own.
+    roles: { view: ALL, create: ALL, update: ALL, delete: ALL },
   },
   campaigns: {
     key: "campaigns",
@@ -318,7 +334,11 @@ export const modules: Record<ModuleKey, ModuleDef> = {
 };
 
 /** Modules served by the generic /dashboard/[module] route. */
-export const genericModuleKeys = ["clients", "projects", "campaigns", "tasks", "reports", "invoices", "leads", "requests"] as const satisfies readonly ModuleKey[];
+export const genericModuleKeys = ["clients", "campaigns", "tasks", "reports", "invoices", "leads", "requests"] as const satisfies readonly ModuleKey[];
+
+/** Form fields visible/editable for a role. */
+export const fieldsForRole = (def: ModuleDef, role: Role | undefined) => def.fields.filter((f) => !f.roles || (!!role && f.roles.includes(role)));
+export const columnsForRole = (def: ModuleDef, role: Role | undefined) => def.columns.filter((c) => !c.roles || (!!role && c.roles.includes(role)));
 export const modulePath = (def: ModuleDef) => def.path ?? `/dashboard/${def.key}`;
 
 export const moduleKeys = Object.keys(modules) as ModuleKey[];

@@ -48,10 +48,10 @@ export function SiteFooter({ locale, dict }: { locale: Locale; dict: Dictionary 
         {columns.map((col, i) => (
           <div key={col.title} className={i === 0 ? "md:col-span-2 md:col-start-7" : "md:col-span-2"}>
             <h2 className="text-sm font-semibold text-white">{col.title}</h2>
-            <ul className="mt-4 space-y-3">
+            <ul className="mt-3 space-y-1 md:mt-4 md:space-y-3">
               {col.links.map((l) => (
                 <li key={l.href + l.label}>
-                  <Link href={l.href} className="text-sm text-ink-muted transition-colors hover:text-white">{l.label}</Link>
+                  <Link href={l.href} className="inline-flex min-h-10 min-w-10 items-center text-sm text-ink-muted transition-colors hover:text-white md:min-h-0">{l.label}</Link>
                 </li>
               ))}
             </ul>

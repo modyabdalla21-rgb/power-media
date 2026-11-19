@@ -61,7 +61,7 @@ export function SignInForm({ locale, t, disabled, next }: Props & { next?: strin
         <Field label={t.password} htmlFor="password" required>
           <Input id="password" name="password" type="password" autoComplete="current-password" required dir="ltr" disabled={disabled} />
         </Field>
-        <Link href={localizedHref(locale, "/forgot-password")} className="mt-2 inline-block text-xs text-blue-300 hover:text-white">{t.forgotLink}</Link>
+        <Link href={localizedHref(locale, "/forgot-password")} className="mt-1 inline-flex min-h-10 items-center text-xs text-blue-300 hover:text-white">{t.forgotLink}</Link>
       </div>
       <Message state={state} t={t} />
       <Submit pending={pending} label={t.submit} pendingLabel={t.submitting} disabled={disabled} />

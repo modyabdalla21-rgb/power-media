@@ -65,19 +65,20 @@ export async function saveBrandProfile(_prev: BrandProfileState, fd: FormData): 
 
   if (mode === "onboarding" && hasIdentity && (colors.length || logoUrl)) {
     const roles = ["primary", "secondary", "accent", "neutral", "background"];
-    const { data: kit, error: kitError } = await supabase
-      .from("brand_kits")
-      .insert({
-        client_id: workspace.id,
-        name: field(fd, "kit_name").slice(0, 160) || parsed.data.name,
-        source: "existing",
-        palette: colors.map((hex, i) => ({ name: roles[i] ?? `color ${i + 1}`, hex, role: roles[i] ?? "accent" })),
-        logo_url: logoUrl,
-      })
-      .select("id")
-      .single();
-    if (kitError) console.error("[brand] existing kit save failed", kitError.code, kitError.message);
-    if (kit) await supabase.rpc("activate_brand_kit", { kit: kit.id });
+    const palette = colors.map((hex, i) => ({ name: roles[i] ?? `color ${i + 1}`, hex, role: roles[i] ?? "accent" }));
+    // An uploaded logo may already have created the active kit — update it instead of duplicating.
+    const { data: active } = await supabase.from("brand_kits").select("id").eq("client_id", workspace.id).eq("is_active", true).maybeSingle();
+    if (active) {
+      await supabase.from("brand_kits").update({ ...(palette.length ? { palette } : {}), ...(logoUrl ? { logo_url: logoUrl } : {}) }).eq("id", active.id);
+    } else {
+      const { data: kit, error: kitError } = await supabase
+        .from("brand_kits")
+        .insert({ client_id: workspace.id, name: field(fd, "kit_name").slice(0, 160) || parsed.data.name, source: "existing", palette, logo_url: logoUrl })
+        .select("id")
+        .single();
+      if (kitError) console.error("[brand] existing kit save failed", kitError.code, kitError.message);
+      if (kit) await supabase.rpc("activate_brand_kit", { kit: kit.id });
+    }
   }
 
   if (uiLocale !== profile.locale) await supabase.from("profiles").update({ locale: uiLocale }).eq("id", profile.id);
