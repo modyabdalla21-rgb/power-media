@@ -27,31 +27,51 @@ export function activeProviderIds(): ProviderId[] {
   return getProviders().map((p) => p.id);
 }
 
-/**
- * Try each provider/model in order. Falls through on retryable failures
- * (rate limits, quota, missing model, outages); stops on auth/blocked/bad
- * requests. Total time is bounded by `deadlineMs`.
- */
-export async function generateText(params: Omit<GenerateParams, "signal">, deadlineMs = 50_000): Promise<GenerateResult> {
-  const providers = getProviders();
-  if (!providers.length) throw new AiError("notConfigured");
+/** Overall budget for a generation; the API route's maxDuration is 60s. */
+export const GENERATION_DEADLINE_MS = 52_000;
+/** Time always kept in reserve for the next (faster) fallback model. */
+const FALLBACK_RESERVE_MS = 15_000;
+/** Below this, an attempt is pointless — report a timeout instead. */
+const MIN_ATTEMPT_MS = 4_000;
 
-  const signal = AbortSignal.timeout(deadlineMs);
+/**
+ * Try each provider/model in order (for Gemini: the configured model, then
+ * gemini-flash-latest, then gemini-flash-lite-latest). Falls through on
+ * retryable failures — rate limits, quota, missing models, outages and
+ * per-attempt timeouts — and stops on auth/blocked/bad requests.
+ *
+ * Each attempt gets its own abort timeout. Attempts that have a fallback
+ * after them leave FALLBACK_RESERVE_MS unused, so a slow primary model
+ * can't consume the whole budget and starve the lite fallback.
+ */
+export async function generateText(params: Omit<GenerateParams, "signal">, deadlineMs = GENERATION_DEADLINE_MS): Promise<GenerateResult> {
+  const attempts = getProviders().flatMap((provider) => provider.models.map((model) => ({ provider, model })));
+  if (!attempts.length) throw new AiError("notConfigured");
+
+  const deadline = Date.now() + deadlineMs;
   let last: AiError | null = null;
-  for (const provider of providers) {
-    for (const model of provider.models) {
-      if (signal.aborted) throw new AiError("timeout");
-      try {
-        return await provider.generate(model, { ...params, signal });
-      } catch (err) {
-        const e = err instanceof AiError ? err : new AiError("unknown", String(err));
-        console.error(`[ai] ${provider.id}/${model} failed: ${e.code} ${e.detail}`);
-        // Prefer reporting the most actionable error (e.g. auth over a later timeout).
-        if (!last || last.code === "modelUnavailable" || last.code === "unavailable") last = e;
-        if (!e.retryable) {
-          if (e.code === "auth") break; // try the next provider, not more models with a bad key
-          throw e;
+  let skipProvider: string | null = null;
+
+  for (const [i, { provider, model }] of attempts.entries()) {
+    if (provider.id === skipProvider) continue;
+    const remaining = deadline - Date.now();
+    if (remaining < MIN_ATTEMPT_MS) throw last?.code === "timeout" || !last ? new AiError("timeout") : last;
+    const hasFallback = i < attempts.length - 1;
+    const budget = hasFallback ? Math.max(MIN_ATTEMPT_MS, remaining - FALLBACK_RESERVE_MS) : remaining;
+
+    try {
+      return await provider.generate(model, { ...params, signal: AbortSignal.timeout(budget) });
+    } catch (err) {
+      const e = err instanceof AiError ? err : new AiError("unknown", String(err));
+      console.error(`[ai] ${provider.id}/${model} failed after ≤${Math.round(budget / 1000)}s budget: ${e.code} ${e.detail}`);
+      // Keep the most actionable error (auth/quota beyond generic outages).
+      if (!last || ["modelUnavailable", "unavailable", "timeout"].includes(last.code)) last = e;
+      if (!e.retryable) {
+        if (e.code === "auth") {
+          skipProvider = provider.id; // a bad key fails for every model of this provider
+          continue;
         }
+        throw e;
       }
     }
   }

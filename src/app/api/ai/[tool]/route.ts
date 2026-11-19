@@ -9,7 +9,9 @@ import { isDashboardPreview } from "@/lib/env";
 import { serverEnv } from "@/lib/env.server";
 import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/server";
 
-// Free-tier models can take 20–40s for long outputs.
+// Allow up to 60s on Vercel (Hobby without Fluid compute defaults to 10s).
+// The model calls themselves are bounded at 52s (GENERATION_DEADLINE_MS),
+// leaving headroom for loading context and saving the result.
 export const maxDuration = 60;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

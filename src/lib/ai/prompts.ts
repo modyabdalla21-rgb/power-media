@@ -19,7 +19,8 @@ Rules you must always follow:
 - Never invent facts, statistics, prices, testimonials, awards, client names or performance results. If a needed fact is missing, write a clearly marked placeholder like [add price] or state the assumption.
 - Avoid unverifiable superlatives ("#1", "best in Egypt") and anything that breaks Meta, TikTok, Snapchat or Google ad policies (e.g. personal-attribute targeting language, misleading claims, before/after health claims).
 - Be culturally appropriate for Egyptian and Gulf audiences (family values, modesty, Ramadan/Eid sensitivities).
-- Keep brand and product names exactly as given (Latin script is fine inside Arabic text). Use Western digits (0-9).`;
+- Keep brand and product names exactly as given (Latin script is fine inside Arabic text). Use Western digits (0-9).
+- Be concise and skimmable: no introductions, no repetition, no generic marketing advice. Every line must be usable as-is.`;
 
 const FORMAT_GUIDE: Record<string, string> = {
   meta_ad: `Format: Meta ads (Facebook & Instagram). For each variation provide a "### Variation N — <angle>" heading with:
@@ -93,7 +94,8 @@ export function buildPrompt(tool: ToolDefinition, inputs: Record<string, string>
         line("Call to action", inputs.cta),
       ])}${contextBlock}`,
       temperature: 0.9,
-      maxOutputTokens: 6144,
+      // ~600 tokens per variation (Arabic needs more tokens per word) + notes.
+      maxOutputTokens: 600 + n * 600,
     };
   }
 
@@ -103,12 +105,12 @@ export function buildPrompt(tool: ToolDefinition, inputs: Record<string, string>
 Structure the plan with these sections:
 ## Summary — objective, recommended approach in 3–4 bullets.
 ## Campaign structure — Markdown table: Platform | Campaign | Objective / optimisation event | Ad sets or ad groups | Targeting | Placements.
-## Audience angles — 4–6 angles, each with: insight, message, best creative format.
+## Audience angles — 4 angles, each with one line each for insight, message and best creative format.
 ## Budget & channel allocation — Markdown table: Channel | Share % | Amount | Rationale. Amounts MUST add up exactly to the total budget in the given currency; show the total row. Then a phase plan (test → optimise → scale) with budget per phase.
 ## KPIs & targets — label every benchmark as a planning assumption to validate with account data; base targets on the past performance provided when available.
-## Testing plan — what to test first, success criteria, decision rules.
-## Tracking checklist — Pixel / Conversions API, GA4, UTMs, WhatsApp click tracking as relevant.
-## Risks & assumptions
+## Testing plan — 3–5 bullets: what to test first, success criteria, decision rules.
+## Tracking checklist — short bullets: Pixel / Conversions API, GA4, UTMs, WhatsApp click tracking as relevant.
+## Risks & assumptions — 3–5 bullets.
 Consider local context: Snapchat's strength in KSA, WhatsApp-led conversion in Egypt and the GCC, seasonality (Ramadan, Eid, White Friday, national days), Arabic vs English creative.`,
       prompt: `Plan this campaign:\n${block([
         line("Product / offer", inputs.offer),
@@ -121,7 +123,7 @@ Consider local context: Snapchat's strength in KSA, WhatsApp-led conversion in E
         line("Past performance", inputs.performance),
       ])}${contextBlock}`,
       temperature: 0.5,
-      maxOutputTokens: 8192,
+      maxOutputTokens: 3500,
     };
   }
 
@@ -145,6 +147,6 @@ Structure:
       line("Planned next steps", inputs.next_steps),
     ]) || "- (No additional metrics were provided — use placeholders for results.)"}${contextBlock}`,
     temperature: 0.3,
-    maxOutputTokens: 8192,
+    maxOutputTokens: 3500,
   };
 }

@@ -7,6 +7,9 @@ import { aiTools, getToolBySlug } from "@/lib/ai/tools";
 import { loadPage } from "@/lib/page";
 import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/server";
 
+// Generation runs in /api/ai/[tool] (maxDuration 60 there). Set here too so
+// any server work for this page is never cut off at a 10s platform default.
+export const maxDuration = 60;
 export const dynamicParams = false;
 export function generateStaticParams() {
   return locales.flatMap((locale) => aiTools.map((t) => ({ locale, tool: t.slug })));

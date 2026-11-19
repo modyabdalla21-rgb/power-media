@@ -82,7 +82,9 @@ export function ToolWorkspace({ slug, fields, t, crud, libraryHref, languageFiel
         return;
       }
       if (data.fields) setFieldErrors(data.fields);
-      const code: ErrorCode = data.code && data.code in t.errors ? data.code : "unknown";
+      // A platform-level timeout (e.g. Vercel 504) returns no JSON code.
+      const code: ErrorCode =
+        data.code && data.code in t.errors ? data.code : res.status === 504 || res.status === 408 ? "timeout" : "unknown";
       setState({ kind: "error", code, retryAfter: typeof data.retryAfter === "number" ? data.retryAfter : undefined });
     } catch {
       setState({ kind: "error", code: "network" });
