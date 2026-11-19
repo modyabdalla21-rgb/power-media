@@ -138,6 +138,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       e.code === "notConfigured" ? 503
       : e.code === "rateLimited" || e.code === "quota" ? 429
       : e.code === "timeout" ? 504
+      : e.code === "unavailable" ? 503
       : e.code === "blocked" || e.code === "badRequest" ? 422
       : 502;
     // Only the normalised code (and a retry hint) reaches the browser.

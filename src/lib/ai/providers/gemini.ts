@@ -14,39 +14,44 @@ const parseDelay = (d?: string) => (d && /^\d+(\.\d+)?s$/.test(d) ? Math.ceil(pa
 
 /**
  * Thinking control. Flash models "think" before answering, which adds
- * seconds of latency. Gemini 2.5-style models accept `thinkingBudget: 0`
- * (off); Gemini 3.x models use `thinkingLevel` and reject the budget form
- * (the two can't be mixed). We try them in order and remember what each
- * model accepted for the lifetime of the warm server instance.
+ * latency, so we ask for it off. Gemini 2.5-style models accept
+ * `thinkingBudget: 0`; Gemini 3.x models use `thinkingLevel` instead and
+ * reject the budget form (the two can't be mixed); some models reject both.
+ * On any 400 (other than a bad key) we immediately retry the same model
+ * with a lighter setting — down to no thinkingConfig at all — and remember
+ * what each model accepted for the lifetime of the warm server instance.
  */
 type ThinkingMode = "off" | "low" | "default";
-const THINKING_ORDER: ThinkingMode[] = ["off", "low", "default"];
 const thinkingConfig = (mode: ThinkingMode) =>
   mode === "off" ? { thinkingBudget: 0 } : mode === "low" ? { thinkingLevel: "low" } : undefined;
 const acceptedThinking = new Map<string, ThinkingMode>();
-const isThinkingRejection = (e: unknown) =>
-  e instanceof AiError && e.code === "badRequest" && /thinking|budget/i.test(e.detail);
 
-/**
- * Google Gemini (AI Studio) via REST. The key is sent in the
- * `x-goog-api-key` header and treated as an opaque string — both the
- * classic `AIza…` and the newer `AQ.…` key formats work.
- */
+/** Next setting to try after a 400, or null when there's nothing left to drop. */
+function nextThinkingMode(mode: ThinkingMode, err: unknown): ThinkingMode | null {
+  if (!(err instanceof AiError) || err.code !== "badRequest") return null;
+  if (mode === "off") {
+    // A budget-specific rejection suggests a Gemini 3.x model: try thinkingLevel.
+    // Any other 400: go straight to no thinkingConfig.
+    return /budget|thinking/i.test(err.detail) && !/level/i.test(err.detail) ? "low" : "default";
+  }
+  return mode === "low" ? "default" : null;
+}
+
 export function createGeminiProvider(apiKey: string, models: string[]): AiProvider {
   return {
     id: "gemini",
     models,
     async generate(model: string, p: GenerateParams): Promise<GenerateResult> {
-      let mode = acceptedThinking.get(model) ?? THINKING_ORDER[0];
+      let mode = acceptedThinking.get(model) ?? "off";
       for (;;) {
         try {
           const result = await call(model, p, mode);
           acceptedThinking.set(model, mode);
           return result;
         } catch (err) {
-          const next = THINKING_ORDER[THINKING_ORDER.indexOf(mode) + 1];
-          if (!next || !isThinkingRejection(err)) throw err;
-          console.warn(`[ai] gemini/${model} rejected thinking mode "${mode}", retrying with "${next}"`);
+          const next = nextThinkingMode(mode, err);
+          if (!next) throw err;
+          console.warn(`[ai] gemini/${model} returned 400 with thinking mode "${mode}"; retrying same model with "${next}" (${(err as AiError).detail.slice(0, 160)})`);
           mode = next;
         }
       }

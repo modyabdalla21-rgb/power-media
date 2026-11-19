@@ -2,7 +2,7 @@ import "server-only";
 import { serverEnv } from "@/lib/env.server";
 import { createAnthropicProvider } from "./providers/anthropic";
 import { createGeminiProvider } from "./providers/gemini";
-import { AiError, type AiProvider, type GenerateParams, type GenerateResult, type ProviderId } from "./types";
+import { AiError, type AiErrorCode, type AiProvider, type GenerateParams, type GenerateResult, type ProviderId } from "./types";
 
 const unique = (xs: (string | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x && !!x.trim()).map((x) => x.trim()))];
 
@@ -13,8 +13,15 @@ const unique = (xs: (string | undefined)[]) => [...new Set(xs.filter((x): x is s
 export function getProviders(): AiProvider[] {
   const all: AiProvider[] = [];
   if (serverEnv.geminiApiKey) {
-    // Auto-updating aliases keep working as Google rotates model versions.
-    all.push(createGeminiProvider(serverEnv.geminiApiKey, unique([serverEnv.geminiModel, "gemini-flash-latest", "gemini-flash-lite-latest"])));
+    // Auto-updating aliases first, explicit model IDs as fallbacks, and the
+    // lightest model last. Missing/retired models fail fast (404) and are
+    // skipped for a while after that.
+    all.push(
+      createGeminiProvider(
+        serverEnv.geminiApiKey,
+        unique([serverEnv.geminiModel, "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-lite-latest"]),
+      ),
+    );
   }
   if (serverEnv.anthropicApiKey) {
     all.push(createAnthropicProvider(serverEnv.anthropicApiKey, unique([serverEnv.anthropicModel, "claude-sonnet-5-5"])));
@@ -29,51 +36,93 @@ export function activeProviderIds(): ProviderId[] {
 
 /** Overall budget for a generation; the API route's maxDuration is 60s. */
 export const GENERATION_DEADLINE_MS = 52_000;
-/** Time always kept in reserve for the next (faster) fallback model. */
+/** Time always kept in reserve for later (faster) fallback models. */
 const FALLBACK_RESERVE_MS = 15_000;
-/** Below this, an attempt is pointless — report a timeout instead. */
+/** Below this, an attempt is pointless — stop and report. */
 const MIN_ATTEMPT_MS = 4_000;
+/** A 503 gets one quick retry on the same model, capped at this long. */
+const UNAVAILABLE_RETRY_MS = 8_000;
+const UNAVAILABLE_RETRY_DELAY_MS = 800;
 
 /**
- * Try each provider/model in order (for Gemini: the configured model, then
- * gemini-flash-latest, then gemini-flash-lite-latest). Falls through on
- * retryable failures — rate limits, quota, missing models, outages and
- * per-attempt timeouts — and stops on auth/blocked/bad requests.
- *
- * Each attempt gets its own abort timeout. Attempts that have a fallback
- * after them leave FALLBACK_RESERVE_MS unused, so a slow primary model
- * can't consume the whole budget and starve the lite fallback.
+ * Per-instance memory of failing models: missing models (404) are tried
+ * last for 30 minutes, overloaded/slow ones (503, timeout) for 60 seconds.
+ * They are only moved to the back of the queue, never removed.
+ */
+const cooldowns = new Map<string, number>();
+const COOLDOWN_MS: Partial<Record<AiErrorCode, number>> = { modelUnavailable: 30 * 60_000, unavailable: 60_000, timeout: 60_000 };
+const inCooldown = (key: string) => (cooldowns.get(key) ?? 0) > Date.now();
+
+/**
+ * Which failure to report when every attempt failed: the most actionable
+ * first. An outage (503) outranks a model-specific 400, so users see
+ * "temporarily unavailable" rather than "change your brief".
+ */
+const ERROR_RANK: AiErrorCode[] = ["auth", "quota", "rateLimited", "unavailable", "timeout", "modelUnavailable", "badRequest", "unknown"];
+const worse = (a: AiError, b: AiError) => (ERROR_RANK.indexOf(a.code) <= ERROR_RANK.indexOf(b.code) ? a : b);
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Try each provider/model in order. Each attempt gets its own abort
+ * timeout; attempts with fallbacks after them keep FALLBACK_RESERVE_MS in
+ * reserve. A 503 gets one short retry (≤8s), then we move on. Stops early
+ * only on safety blocks; a bad key skips the rest of that provider.
  */
 export async function generateText(params: Omit<GenerateParams, "signal">, deadlineMs = GENERATION_DEADLINE_MS): Promise<GenerateResult> {
-  const attempts = getProviders().flatMap((provider) => provider.models.map((model) => ({ provider, model })));
-  if (!attempts.length) throw new AiError("notConfigured");
+  const ordered = getProviders().flatMap((provider) => provider.models.map((model) => ({ provider, model, key: `${provider.id}/${model}` })));
+  if (!ordered.length) throw new AiError("notConfigured");
+  // Healthy models first; recently failing ones last (stable order otherwise).
+  const attempts = [...ordered.filter((a) => !inCooldown(a.key)), ...ordered.filter((a) => inCooldown(a.key))];
 
   const deadline = Date.now() + deadlineMs;
-  let last: AiError | null = null;
+  let reported: AiError | null = null;
   let skipProvider: string | null = null;
 
-  for (const [i, { provider, model }] of attempts.entries()) {
+  for (const [i, { provider, model, key }] of attempts.entries()) {
     if (provider.id === skipProvider) continue;
-    const remaining = deadline - Date.now();
-    if (remaining < MIN_ATTEMPT_MS) throw last?.code === "timeout" || !last ? new AiError("timeout") : last;
-    const hasFallback = i < attempts.length - 1;
-    const budget = hasFallback ? Math.max(MIN_ATTEMPT_MS, remaining - FALLBACK_RESERVE_MS) : remaining;
+    const hasFallback = attempts.slice(i + 1).some((a) => a.provider.id !== skipProvider);
 
-    try {
-      return await provider.generate(model, { ...params, signal: AbortSignal.timeout(budget) });
-    } catch (err) {
-      const e = err instanceof AiError ? err : new AiError("unknown", String(err));
-      console.error(`[ai] ${provider.id}/${model} failed after ≤${Math.round(budget / 1000)}s budget: ${e.code} ${e.detail}`);
-      // Keep the most actionable error (auth/quota beyond generic outages).
-      if (!last || ["modelUnavailable", "unavailable", "timeout"].includes(last.code)) last = e;
-      if (!e.retryable) {
+    for (let retry = 0; retry < 2; retry++) {
+      const remaining = deadline - Date.now();
+      if (remaining < MIN_ATTEMPT_MS) throw finalError(reported ?? new AiError("timeout"));
+      let budget = hasFallback ? Math.max(MIN_ATTEMPT_MS, remaining - FALLBACK_RESERVE_MS) : remaining;
+      if (retry > 0) budget = Math.min(budget, UNAVAILABLE_RETRY_MS);
+
+      const started = Date.now();
+      try {
+        const result = await provider.generate(model, { ...params, signal: AbortSignal.timeout(budget) });
+        cooldowns.delete(key);
+        return result;
+      } catch (err) {
+        const e = err instanceof AiError ? err : new AiError("unknown", String(err));
+        const took = ((Date.now() - started) / 1000).toFixed(1);
+        console.error(`[ai] ${key} failed in ${took}s (budget ${Math.round(budget / 1000)}s${retry ? ", retry" : ""}): ${e.code} ${e.detail}`);
+        reported = reported ? worse(reported, e) : e;
+
+        if (e.code === "blocked") throw e; // safety decision — same for every model
         if (e.code === "auth") {
           skipProvider = provider.id; // a bad key fails for every model of this provider
+          break;
+        }
+        const cooldown = COOLDOWN_MS[e.code];
+        if (cooldown) cooldowns.set(key, Date.now() + cooldown);
+
+        // One short retry for a fast 503, then move on to the next model.
+        const quick503 = e.code === "unavailable" && retry === 0 && Date.now() - started < UNAVAILABLE_RETRY_MS;
+        if (quick503 && deadline - Date.now() > MIN_ATTEMPT_MS + UNAVAILABLE_RETRY_DELAY_MS) {
+          await sleep(UNAVAILABLE_RETRY_DELAY_MS);
           continue;
         }
-        throw e;
+        break;
       }
     }
   }
-  throw last ?? new AiError("unknown");
+  throw finalError(reported ?? new AiError("unknown"));
+}
+
+/** Add a sensible retry hint for temporary outages. */
+function finalError(e: AiError) {
+  if ((e.code === "unavailable" || e.code === "timeout") && !e.retryAfterSec) e.retryAfterSec = 30;
+  return e;
 }

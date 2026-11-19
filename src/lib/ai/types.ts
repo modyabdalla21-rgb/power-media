@@ -44,9 +44,12 @@ export class AiError extends Error {
   ) {
     super(`${code}${detail ? `: ${detail}` : ""}`);
   }
-  /** Worth trying another model/provider. */
+  /**
+   * Worth trying another model/provider. A 400 counts too: it is often
+   * model-specific (unsupported parameter), so another model may succeed.
+   */
   get retryable() {
-    return ["rateLimited", "quota", "modelUnavailable", "unavailable", "timeout"].includes(this.code);
+    return ["rateLimited", "quota", "modelUnavailable", "unavailable", "timeout", "badRequest"].includes(this.code);
   }
 }
 
