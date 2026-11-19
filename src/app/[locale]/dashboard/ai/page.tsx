@@ -1,18 +1,49 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
-import { PageHeader } from "@/components/dashboard/primitives";
+import { redirect } from "next/navigation";
+import { ArrowUpRight, CircleCheck, CircleDashed, Library } from "lucide-react";
+import { EmptyState, PageHeader, Panel } from "@/components/dashboard/primitives";
 import { IconTile, toolIcons } from "@/components/site/icons";
 import { localizedHref } from "@/i18n/config";
+import { activeProviderIds } from "@/lib/ai/provider";
 import { aiTools } from "@/lib/ai/tools";
+import { formatDate } from "@/lib/format";
 import { loadPage } from "@/lib/page";
+import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/server";
+
+export async function generateMetadata({ params }: PageProps<"/[locale]/dashboard/ai">) {
+  const { dict } = await loadPage(params);
+  return { title: dict.dashboard.ai.hubTitle };
+}
 
 export default async function AiHubPage({ params }: PageProps<"/[locale]/dashboard/ai">) {
   const { locale, dict } = await loadPage(params);
   const t = dict.dashboard.ai;
+  const profile = await getCurrentProfile();
+  if (profile?.role === "client") redirect(localizedHref(locale, "/dashboard/ai/history"));
+
+  const supabase = await createSupabaseServerClient();
+  const providerReady = activeProviderIds().length > 0;
+  const { data: recent } = supabase
+    ? await supabase.from("ai_generations").select("id, title, tool, created_at").order("created_at", { ascending: false }).limit(6)
+    : { data: null };
+  const opts = dict.dashboard.options;
+
   return (
     <div className="space-y-8">
-      <PageHeader title={t.hubTitle} description={t.hubSubtitle} />
-      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <PageHeader
+        title={t.hubTitle}
+        description={t.hubSubtitle}
+        actions={
+          <span className={providerReady ? "inline-flex items-center gap-1.5 text-xs text-blue-300" : "inline-flex items-center gap-1.5 text-xs text-yellow"}>
+            {providerReady ? <CircleCheck className="size-4" aria-hidden /> : <CircleDashed className="size-4" aria-hidden />}
+            {providerReady ? t.providerReady : ""}
+          </span>
+        }
+      />
+      {!providerReady && (
+        <p role="status" className="rounded-xl border border-orange/30 bg-orange/10 p-4 text-sm">{t.providerMissing}</p>
+      )}
+      <ul className="grid gap-4 md:grid-cols-3">
         {aiTools.map((tool, i) => (
           <li key={tool.key}>
             <Link href={localizedHref(locale, `/dashboard/ai/${tool.slug}`)} className="surface-card ring-glow-hover group flex h-full flex-col p-6">
@@ -27,6 +58,28 @@ export default async function AiHubPage({ params }: PageProps<"/[locale]/dashboa
           </li>
         ))}
       </ul>
+      <Panel
+        title={t.recent}
+        actions={<Link href={localizedHref(locale, "/dashboard/ai/history")} className="text-xs font-medium text-blue-300 hover:text-white">{t.viewLibrary}</Link>}
+      >
+        {recent?.length ? (
+          <ul className="divide-y divide-line">
+            {recent.map((g) => (
+              <li key={g.id}>
+                <Link href={localizedHref(locale, `/dashboard/ai/history/${g.id}`)} className="flex items-center justify-between gap-4 px-5 py-3.5 text-sm transition-colors hover:bg-white/[0.02]">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{g.title}</span>
+                    <span className="text-xs text-ink-subtle">{opts[g.tool as keyof typeof opts] ?? g.tool}</span>
+                  </span>
+                  <span className="shrink-0 text-xs text-ink-subtle">{formatDate(g.created_at, locale)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState icon={Library} title={t.noRecent} className="py-10" />
+        )}
+      </Panel>
     </div>
   );
 }

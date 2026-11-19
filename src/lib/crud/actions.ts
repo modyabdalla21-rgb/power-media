@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { can, modules, type ModuleKey } from "@/config/modules";
 import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/server";
 import { parseRecord, type FieldError } from "./parse";
@@ -67,5 +68,8 @@ export async function deleteRecord(_prev: CrudState, fd: FormData): Promise<Crud
   if (error) return { error: dbErrorKey(error.code) };
   if (count === 0) return { error: "forbidden" };
   revalidatePath("/[locale]/dashboard", "layout");
+  // Optional post-delete navigation (e.g. from a detail page); same-app paths only.
+  const next = String(fd.get("_redirect") ?? "");
+  if (/^\/(en|ar)\/dashboard(\/[\w\-/]*)?$/.test(next)) redirect(next);
   return { ok: true };
 }

@@ -20,7 +20,9 @@ function NavContent({ locale, t, tools, role, onNavigate }: NavProps) {
   const pathname = usePathname() ?? "";
   const isActive = (href: string) => {
     const full = localizedHref(locale, href);
-    return href === "/dashboard" ? pathname === full : pathname.startsWith(full);
+    if (href === "/dashboard") return pathname === full;
+    if (href === "/dashboard/ai") return pathname.startsWith(full) && !pathname.startsWith(`${full}/history`);
+    return pathname.startsWith(full);
   };
   const linkCls = (active: boolean) =>
     cn(

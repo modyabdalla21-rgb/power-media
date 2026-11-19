@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import type { ColumnDef } from "@/config/modules";
 import type { Locale } from "@/i18n/config";
@@ -14,7 +15,7 @@ const person = (v: unknown) => {
   return p?.name ?? p?.full_name ?? p?.email ?? "—";
 };
 
-export function renderCell(col: ColumnDef, row: Row, dict: Dictionary, locale: Locale): ReactNode {
+export function renderCell(col: ColumnDef, row: Row, dict: Dictionary, locale: Locale, href?: string): ReactNode {
   const o = dict.dashboard.options;
   switch (col.kind) {
     case "text": {
@@ -22,11 +23,17 @@ export function renderCell(col: ColumnDef, row: Row, dict: Dictionary, locale: L
       const sec = col.secondary ? row[col.secondary] : null;
       return (
         <div className="max-w-[18rem]">
-          <p className={col.strong ? "truncate font-medium text-white" : "line-clamp-2 text-ink-muted"}>{(v as string) || "—"}</p>
+          {col.link && href ? (
+            <Link href={href} className="block truncate font-medium text-white hover:text-blue-300">{(v as string) || "—"}</Link>
+          ) : (
+            <p className={col.strong ? "truncate font-medium text-white" : "line-clamp-2 text-ink-muted"}>{(v as string) || "—"}</p>
+          )}
           {typeof sec === "string" && sec && <p className="truncate text-xs text-ink-subtle">{sec}</p>}
         </div>
       );
     }
+    case "boolean":
+      return row[col.column] ? <StatusBadge value="active" label={o.yes} /> : <span className="text-ink-subtle">{o.no}</span>;
     case "option":
       return <span className="text-ink-muted">{row[col.column] ? opt(o, row[col.column]) : "—"}</span>;
     case "badge": {

@@ -21,7 +21,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/dash
   const status = [
     { label: s.integrations.supabase, ok: isSupabaseConfigured },
     { label: s.integrations.serviceKey, ok: !!serverEnv.supabaseServiceRoleKey },
-    { label: s.integrations.ai, ok: !!(serverEnv.anthropicApiKey || serverEnv.openaiApiKey) },
+    { label: s.integrations.ai, ok: !!(serverEnv.geminiApiKey || serverEnv.anthropicApiKey) },
     { label: s.integrations.payments, ok: !!serverEnv.stripeSecretKey },
   ];
 

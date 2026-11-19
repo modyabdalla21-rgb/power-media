@@ -1,222 +1,187 @@
 /**
  * POWER AI tool registry — single source of truth for each tool's slug,
  * dictionary key and input schema. Used by the UI (forms) and the API
- * (server-side validation + prompt building).
+ * (server-side validation). Prompts live in ./prompts.ts (server only).
  */
 import type { Locale } from "@/i18n/config";
 
 type L = Record<Locale, string>;
+type Opt = { value: string; label: L };
 
 export type ToolField = {
   name: string;
-  type: "text" | "textarea" | "select";
+  type: "text" | "textarea" | "select" | "number" | "date" | "client" | "project";
   required?: boolean;
   label: L;
   placeholder?: L;
-  options?: { value: string; label: L }[];
+  options?: Opt[];
+  defaultValue?: string;
+  max?: number;
+  wide?: boolean;
 };
 
-export type ToolKey =
-  | "strategist"
-  | "copywriter"
-  | "creative"
-  | "mediaBuying"
-  | "contentPlanner"
-  | "competitor"
-  | "landingPage";
+export type ToolKey = "adStudio" | "mediaPlanner" | "reportGenerator";
 
 export type ToolDefinition = {
   key: ToolKey;
   slug: string;
   fields: ToolField[];
-  /** Instructions for the model; finalised in Phase 3. */
-  systemPrompt: string;
+  /** Field holding the output language/dialect. */
+  languageField: string;
+  /** Field used to build the saved generation's title. */
+  titleField: string;
 };
 
-const markets: ToolField["options"] = [
+export const OUTPUT_LANGUAGES = ["en", "ar_msa", "ar_eg", "ar_gulf"] as const;
+export type OutputLanguage = (typeof OUTPUT_LANGUAGES)[number];
+export const isArabicOutput = (lang: string) => lang.startsWith("ar");
+
+const dialects: Opt[] = [
+  { value: "en", label: { en: "English", ar: "الإنجليزية" } },
+  { value: "ar_eg", label: { en: "Arabic — Egyptian", ar: "العربية — اللهجة المصرية" } },
+  { value: "ar_gulf", label: { en: "Arabic — Gulf / Saudi", ar: "العربية — اللهجة الخليجية / السعودية" } },
+  { value: "ar_msa", label: { en: "Arabic — Modern Standard", ar: "العربية — الفصحى" } },
+];
+const reportLanguages: Opt[] = [
+  { value: "en", label: { en: "English", ar: "الإنجليزية" } },
+  { value: "ar_msa", label: { en: "Arabic (Modern Standard)", ar: "العربية (الفصحى)" } },
+];
+const markets: Opt[] = [
   { value: "egypt", label: { en: "Egypt", ar: "مصر" } },
   { value: "ksa", label: { en: "Saudi Arabia", ar: "السعودية" } },
   { value: "uae", label: { en: "UAE", ar: "الإمارات" } },
   { value: "gcc", label: { en: "GCC (multi-market)", ar: "الخليج (عدة أسواق)" } },
 ];
+const currencies: Opt[] = ["EGP", "SAR", "AED", "USD"].map((c) => ({ value: c, label: { en: c, ar: c } }));
 
-const dialects: ToolField["options"] = [
-  { value: "msa", label: { en: "Modern Standard Arabic", ar: "العربية الفصحى" } },
-  { value: "egyptian", label: { en: "Egyptian Arabic", ar: "اللهجة المصرية" } },
-  { value: "gulf", label: { en: "Gulf / Saudi Arabic", ar: "اللهجة الخليجية / السعودية" } },
-];
-
+const client: ToolField = { name: "client_id", type: "client", label: { en: "Link to client", ar: "ربط بعميل" } };
+const project: ToolField = { name: "project_id", type: "project", label: { en: "Link to project", ar: "ربط بمشروع" } };
 const audience: ToolField = {
   name: "audience",
   type: "textarea",
   label: { en: "Target audience", ar: "الجمهور المستهدف" },
-  placeholder: { en: "Who are they? Age, location, interests, pain points…", ar: "من هم؟ العمر، الموقع، الاهتمامات، المشكلات…" },
+  placeholder: { en: "Who are they? Age, city, interests, pain points…", ar: "من هم؟ العمر، المدينة، الاهتمامات، المشكلات…" },
 };
 
 export const aiTools: ToolDefinition[] = [
   {
-    key: "strategist",
-    slug: "marketing-strategist",
-    systemPrompt:
-      "You are a senior marketing strategist for MENA brands. Produce a structured full-funnel strategy: positioning, audiences, channel mix, budget split, KPIs and a 90-day roadmap.",
+    key: "adStudio",
+    slug: "ad-copy-studio",
+    languageField: "language",
+    titleField: "offer",
     fields: [
-      { name: "brand", type: "text", required: true, label: { en: "Brand / product", ar: "العلامة / المنتج" } },
-      { name: "industry", type: "text", label: { en: "Industry", ar: "القطاع" } },
-      { name: "market", type: "select", required: true, label: { en: "Market", ar: "السوق" }, options: markets },
-      audience,
-      {
-        name: "goal",
-        type: "select",
-        required: true,
-        label: { en: "Primary goal", ar: "الهدف الرئيسي" },
-        options: [
-          { value: "awareness", label: { en: "Brand awareness", ar: "الوعي بالعلامة" } },
-          { value: "leads", label: { en: "Lead generation", ar: "جذب العملاء المحتملين" } },
-          { value: "sales", label: { en: "Online sales", ar: "المبيعات الإلكترونية" } },
-          { value: "app", label: { en: "App installs", ar: "تثبيت التطبيق" } },
-        ],
-      },
-      { name: "budget", type: "text", label: { en: "Monthly budget", ar: "الميزانية الشهرية" }, placeholder: { en: "e.g. 150,000 EGP", ar: "مثال: 150,000 جنيه" } },
-    ],
-  },
-  {
-    key: "copywriter",
-    slug: "ad-copywriter",
-    systemPrompt:
-      "You are an expert direct-response copywriter fluent in English and Arabic dialects. Write platform-native ad copy variations with hooks, primary text, headlines and CTAs.",
-    fields: [
-      { name: "product", type: "text", required: true, label: { en: "Product / offer", ar: "المنتج / العرض" } },
-      audience,
-      {
-        name: "platform",
-        type: "select",
-        required: true,
-        label: { en: "Platform", ar: "المنصة" },
-        options: [
-          { value: "meta", label: { en: "Facebook & Instagram", ar: "فيسبوك وإنستغرام" } },
-          { value: "tiktok", label: { en: "TikTok", ar: "تيك توك" } },
-          { value: "snapchat", label: { en: "Snapchat", ar: "سناب شات" } },
-          { value: "google", label: { en: "Google Search", ar: "بحث جوجل" } },
-          { value: "x", label: { en: "X (Twitter)", ar: "إكس (تويتر)" } },
-          { value: "linkedin", label: { en: "LinkedIn", ar: "لينكدإن" } },
-        ],
-      },
-      {
-        name: "framework",
-        type: "select",
-        label: { en: "Copy framework", ar: "إطار الكتابة" },
-        options: [
-          { value: "aida", label: { en: "AIDA", ar: "AIDA" } },
-          { value: "pas", label: { en: "PAS", ar: "PAS" } },
-          { value: "bab", label: { en: "Before–After–Bridge", ar: "قبل–بعد–الجسر" } },
-          { value: "hso", label: { en: "Hook–Story–Offer", ar: "خطّاف–قصة–عرض" } },
-        ],
-      },
-      { name: "dialect", type: "select", label: { en: "Arabic dialect", ar: "اللهجة العربية" }, options: dialects },
-      { name: "message", type: "textarea", label: { en: "Key message / USP", ar: "الرسالة الرئيسية / الميزة التنافسية" } },
-    ],
-  },
-  {
-    key: "creative",
-    slug: "creative-director",
-    systemPrompt:
-      "You are an award-winning creative director. Generate distinct campaign concepts with big idea, visual direction, key visuals, shot lists and format adaptations.",
-    fields: [
-      { name: "campaign", type: "text", required: true, label: { en: "Campaign / brand", ar: "الحملة / العلامة" } },
-      { name: "personality", type: "textarea", label: { en: "Brand personality", ar: "شخصية العلامة" } },
       {
         name: "format",
         type: "select",
         required: true,
-        label: { en: "Primary format", ar: "الصيغة الرئيسية" },
+        label: { en: "Format", ar: "الصيغة" },
+        defaultValue: "meta_ad",
         options: [
-          { value: "static", label: { en: "Static visuals", ar: "تصاميم ثابتة" } },
-          { value: "video", label: { en: "Short-form video", ar: "فيديو قصير" } },
-          { value: "carousel", label: { en: "Carousel", ar: "منشور متعدد الصور" } },
-          { value: "ugc", label: { en: "UGC / creator content", ar: "محتوى صنّاع المحتوى" } },
+          { value: "meta_ad", label: { en: "Meta ad (Facebook & Instagram)", ar: "إعلان ميتا (فيسبوك وإنستغرام)" } },
+          { value: "tiktok_ad", label: { en: "TikTok ad", ar: "إعلان تيك توك" } },
+          { value: "google_search_ad", label: { en: "Google Search ad (RSA)", ar: "إعلان بحث جوجل" } },
+          { value: "social_post", label: { en: "Organic social posts", ar: "منشورات سوشيال عضوية" } },
+          { value: "video_script", label: { en: "Short video script (Reels / TikTok)", ar: "سيناريو فيديو قصير (ريلز / تيك توك)" } },
         ],
       },
-      { name: "occasion", type: "text", label: { en: "Season / occasion", ar: "الموسم / المناسبة" }, placeholder: { en: "e.g. Ramadan, White Friday, National Day", ar: "مثال: رمضان، الجمعة البيضاء، اليوم الوطني" } },
-      { name: "references", type: "textarea", label: { en: "References & constraints", ar: "مراجع وقيود" } },
+      { name: "language", type: "select", required: true, label: { en: "Language / dialect", ar: "اللغة / اللهجة" }, options: dialects, defaultValue: "ar_eg" },
+      { name: "offer", type: "text", required: true, max: 200, label: { en: "Product / offer", ar: "المنتج / العرض" }, placeholder: { en: "e.g. Summer skincare bundle — 20% off", ar: "مثال: باقة العناية بالبشرة الصيفية — خصم 20٪" } },
+      { name: "brand", type: "text", max: 120, label: { en: "Brand name", ar: "اسم العلامة" } },
+      audience,
+      { name: "message", type: "textarea", label: { en: "Key message / USP", ar: "الرسالة الرئيسية / الميزة التنافسية" } },
+      {
+        name: "tone",
+        type: "select",
+        label: { en: "Tone", ar: "النبرة" },
+        defaultValue: "bold",
+        options: [
+          { value: "bold", label: { en: "Bold & energetic", ar: "جريئة وحماسية" } },
+          { value: "friendly", label: { en: "Friendly", ar: "ودّية" } },
+          { value: "premium", label: { en: "Premium", ar: "فاخرة" } },
+          { value: "playful", label: { en: "Playful", ar: "مرحة" } },
+          { value: "professional", label: { en: "Professional", ar: "احترافية" } },
+        ],
+      },
+      { name: "cta", type: "text", max: 80, label: { en: "Call to action", ar: "الدعوة لاتخاذ إجراء" }, placeholder: { en: "e.g. Order on WhatsApp", ar: "مثال: اطلب على واتساب" } },
+      {
+        name: "variations",
+        type: "select",
+        label: { en: "Variations", ar: "عدد النسخ" },
+        defaultValue: "3",
+        options: ["1", "3", "5"].map((v) => ({ value: v, label: { en: v, ar: v } })),
+      },
+      client,
+      project,
     ],
   },
   {
-    key: "mediaBuying",
-    slug: "media-buying-assistant",
-    systemPrompt:
-      "You are a senior performance media buyer. Recommend budget allocation, campaign structure, audiences, bidding and an optimisation checklist. Flag assumptions clearly.",
+    key: "mediaPlanner",
+    slug: "campaign-media-planner",
+    languageField: "language",
+    titleField: "offer",
     fields: [
+      { name: "offer", type: "text", required: true, max: 200, label: { en: "Product / offer", ar: "المنتج / العرض" } },
       {
         name: "objective",
         type: "select",
         required: true,
-        label: { en: "Campaign objective", ar: "هدف الحملة" },
+        label: { en: "Objective", ar: "الهدف" },
+        defaultValue: "sales",
         options: [
           { value: "sales", label: { en: "Sales / purchases", ar: "المبيعات" } },
           { value: "leads", label: { en: "Leads", ar: "العملاء المحتملون" } },
+          { value: "messages", label: { en: "WhatsApp / Messenger conversations", ar: "محادثات واتساب / ماسنجر" } },
           { value: "traffic", label: { en: "Traffic", ar: "الزيارات" } },
-          { value: "awareness", label: { en: "Reach & awareness", ar: "الوصول والوعي" } },
+          { value: "awareness", label: { en: "Awareness", ar: "الوعي" } },
+          { value: "app", label: { en: "App installs", ar: "تثبيت التطبيق" } },
         ],
       },
-      { name: "platforms", type: "text", label: { en: "Platforms", ar: "المنصات" }, placeholder: { en: "Meta, TikTok, Google…", ar: "ميتا، تيك توك، جوجل…" } },
-      { name: "budget", type: "text", required: true, label: { en: "Monthly budget", ar: "الميزانية الشهرية" } },
+      { name: "market", type: "select", required: true, label: { en: "Market", ar: "السوق" }, options: markets, defaultValue: "egypt" },
+      { name: "budget", type: "number", required: true, label: { en: "Total budget", ar: "إجمالي الميزانية" } },
+      { name: "currency", type: "select", required: true, label: { en: "Currency", ar: "العملة" }, options: currencies, defaultValue: "EGP" },
       {
-        name: "currency",
+        name: "duration",
         type: "select",
-        label: { en: "Currency", ar: "العملة" },
+        required: true,
+        label: { en: "Duration", ar: "المدة" },
+        defaultValue: "1m",
         options: [
-          { value: "EGP", label: { en: "EGP", ar: "جنيه مصري" } },
-          { value: "SAR", label: { en: "SAR", ar: "ريال سعودي" } },
-          { value: "AED", label: { en: "AED", ar: "درهم إماراتي" } },
-          { value: "USD", label: { en: "USD", ar: "دولار أمريكي" } },
+          { value: "2w", label: { en: "2 weeks", ar: "أسبوعان" } },
+          { value: "1m", label: { en: "1 month", ar: "شهر" } },
+          { value: "3m", label: { en: "3 months", ar: "3 أشهر" } },
         ],
       },
-      { name: "metrics", type: "textarea", label: { en: "Current performance (optional)", ar: "الأداء الحالي (اختياري)" }, placeholder: { en: "CPM, CTR, CPA, ROAS…", ar: "CPM، CTR، CPA، ROAS…" } },
-    ],
-  },
-  {
-    key: "contentPlanner",
-    slug: "content-planner",
-    systemPrompt:
-      "You are a social media content strategist for MENA. Build a content calendar with pillars, formats, captions outlines and regional occasions.",
-    fields: [
-      { name: "brand", type: "text", required: true, label: { en: "Brand", ar: "العلامة" } },
-      { name: "platforms", type: "text", required: true, label: { en: "Platforms", ar: "المنصات" } },
-      { name: "month", type: "text", label: { en: "Month", ar: "الشهر" } },
-      {
-        name: "frequency",
-        type: "select",
-        label: { en: "Posts per week", ar: "عدد المنشورات أسبوعيًا" },
-        options: ["3", "5", "7", "10"].map((v) => ({ value: v, label: { en: v, ar: v } })),
-      },
-      { name: "pillars", type: "textarea", label: { en: "Content pillars / themes", ar: "محاور المحتوى" } },
-    ],
-  },
-  {
-    key: "competitor",
-    slug: "competitor-research",
-    systemPrompt:
-      "You are a market research analyst. Structure a competitor analysis comparing positioning, messaging, offers, channels and opportunities. Only use information the user provides or clearly mark assumptions.",
-    fields: [
-      { name: "brand", type: "text", required: true, label: { en: "Your brand", ar: "علامتك" } },
-      { name: "competitors", type: "textarea", required: true, label: { en: "Competitors (names / URLs)", ar: "المنافسون (الأسماء / الروابط)" } },
-      { name: "market", type: "select", label: { en: "Market", ar: "السوق" }, options: markets },
-      { name: "focus", type: "textarea", label: { en: "What do you want to learn?", ar: "ماذا تريد أن تعرف؟" } },
-    ],
-  },
-  {
-    key: "landingPage",
-    slug: "landing-page-builder",
-    systemPrompt:
-      "You are a conversion copywriter and UX strategist. Produce a landing page outline with section-by-section copy, objection handling and CTAs.",
-    fields: [
-      { name: "offer", type: "text", required: true, label: { en: "Offer / product", ar: "العرض / المنتج" } },
+      { name: "platforms", type: "text", max: 200, label: { en: "Preferred platforms (optional)", ar: "المنصات المفضّلة (اختياري)" }, placeholder: { en: "Meta, TikTok, Snapchat, Google…", ar: "ميتا، تيك توك، سناب شات، جوجل…" } },
       audience,
-      { name: "cta", type: "text", label: { en: "Primary call to action", ar: "الدعوة الرئيسية لاتخاذ إجراء" } },
-      { name: "objections", type: "textarea", label: { en: "Common objections", ar: "الاعتراضات الشائعة" } },
-      { name: "dialect", type: "select", label: { en: "Arabic dialect", ar: "اللهجة العربية" }, options: dialects },
+      { name: "performance", type: "textarea", label: { en: "Past performance (optional)", ar: "الأداء السابق (اختياري)" }, placeholder: { en: "CPM, CTR, CPA, ROAS from previous campaigns…", ar: "CPM، CTR، CPA، ROAS من حملات سابقة…" } },
+      { name: "language", type: "select", required: true, label: { en: "Output language", ar: "لغة المخرجات" }, options: reportLanguages, defaultValue: "en" },
+      client,
+      project,
+    ],
+  },
+  {
+    key: "reportGenerator",
+    slug: "client-report-generator",
+    languageField: "language",
+    titleField: "client_id",
+    fields: [
+      { ...client, required: true, label: { en: "Client", ar: "العميل" } },
+      { ...project, label: { en: "Project (optional — focuses the report)", ar: "المشروع (اختياري — لتركيز التقرير)" } },
+      { name: "period_start", type: "date", required: true, label: { en: "Period start", ar: "بداية الفترة" } },
+      { name: "period_end", type: "date", required: true, label: { en: "Period end", ar: "نهاية الفترة" } },
+      {
+        name: "metrics",
+        type: "textarea",
+        wide: true,
+        label: { en: "Results & metrics", ar: "النتائج والمؤشرات" },
+        placeholder: { en: "Paste real numbers: spend, reach, clicks, leads, sales, ROAS… The report will only use figures you provide.", ar: "الصق الأرقام الفعلية: الإنفاق، الوصول، النقرات، العملاء المحتملون، المبيعات، العائد… لن يستخدم التقرير إلا الأرقام التي تقدّمها." },
+      },
+      { name: "highlights", type: "textarea", wide: true, label: { en: "Highlights & notes", ar: "أبرز النقاط والملاحظات" } },
+      { name: "next_steps", type: "textarea", wide: true, label: { en: "Planned next steps", ar: "الخطوات القادمة المخطط لها" } },
+      { name: "language", type: "select", required: true, label: { en: "Report language", ar: "لغة التقرير" }, options: reportLanguages, defaultValue: "en" },
     ],
   },
 ];
 
 export const getToolBySlug = (slug: string) => aiTools.find((t) => t.slug === slug);
+export const getToolByKey = (key: string) => aiTools.find((t) => t.key === key);

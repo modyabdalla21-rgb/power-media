@@ -15,7 +15,7 @@ export type RelationSource = "clients" | "projects" | "staff" | "clientUsers";
 export type FieldDef = {
   column: string;
   label: FieldLabel;
-  type: "text" | "email" | "tel" | "textarea" | "number" | "date" | "select" | "relation";
+  type: "text" | "email" | "tel" | "textarea" | "number" | "date" | "select" | "relation" | "boolean";
   required?: boolean;
   options?: readonly OptionKey[];
   relation?: RelationSource;
@@ -30,7 +30,8 @@ export type FieldDef = {
 };
 
 export type ColumnDef =
-  | { kind: "text"; column: string; label: FieldLabel; strong?: boolean; secondary?: string }
+  | { kind: "text"; column: string; label: FieldLabel; strong?: boolean; secondary?: string; link?: boolean }
+  | { kind: "boolean"; column: string; label: FieldLabel }
   | { kind: "option"; column: string; label: FieldLabel }
   | { kind: "badge"; column: string; label: FieldLabel }
   | { kind: "money"; column: string; currencyColumn: string; label: FieldLabel }
@@ -49,6 +50,8 @@ export type ModuleDef = {
   fields: readonly FieldDef[];
   columns: readonly ColumnDef[];
   roles: { view: readonly Role[]; create: readonly Role[]; update: readonly Role[]; delete: readonly Role[] };
+  /** Dashboard path of the list (defaults to /dashboard/<key>). Rows link to `${path}/<id>` when a column has `link`. */
+  path?: string;
 };
 
 export const STAFF: readonly Role[] = ["admin", "team"];
@@ -58,7 +61,7 @@ const ADMIN: readonly Role[] = ["admin"];
 const currencies = ["EGP", "SAR", "AED", "USD"] as const satisfies readonly OptionKey[];
 const markets = ["egypt", "ksa", "uae", "gcc", "other"] as const satisfies readonly OptionKey[];
 
-export type ModuleKey = "clients" | "projects" | "campaigns" | "tasks" | "reports" | "invoices" | "leads";
+export type ModuleKey = "clients" | "projects" | "campaigns" | "tasks" | "reports" | "invoices" | "leads" | "generations";
 
 export const modules: Record<ModuleKey, ModuleDef> = {
   clients: {
@@ -254,7 +257,36 @@ export const modules: Record<ModuleKey, ModuleDef> = {
     ],
     roles: { view: STAFF, create: [], update: STAFF, delete: ADMIN },
   },
+  generations: {
+    key: "generations",
+    table: "ai_generations",
+    path: "/dashboard/ai/history",
+    select: "*, client:clients(name), project:projects(name), author:profiles!ai_generations_user_id_fkey(full_name, email)",
+    search: ["title", "output"],
+    filter: { column: "tool", options: ["adStudio", "mediaPlanner", "reportGenerator"] },
+    order: { column: "created_at", ascending: false },
+    fields: [
+      { column: "title", label: "title", type: "text", required: true, max: 200, wide: true },
+      { column: "client_id", label: "client", type: "relation", relation: "clients" },
+      { column: "project_id", label: "project", type: "relation", relation: "projects" },
+      { column: "shared_with_client", label: "sharedWithClient", type: "boolean", defaultValue: "false" },
+    ],
+    columns: [
+      { kind: "text", column: "title", label: "title", strong: true, link: true },
+      { kind: "option", column: "tool", label: "tool" },
+      { kind: "relation", path: "client", label: "client" },
+      { kind: "relation", path: "author", label: "author" },
+      { kind: "boolean", column: "shared_with_client", label: "sharedWithClient" },
+      { kind: "date", column: "created_at", label: "createdAt" },
+    ],
+    // RLS: team edits/deletes their own; admin any; clients read shared items.
+    roles: { view: ALL, create: [], update: STAFF, delete: STAFF },
+  },
 };
+
+/** Modules served by the generic /dashboard/[module] route. */
+export const genericModuleKeys = ["clients", "projects", "campaigns", "tasks", "reports", "invoices", "leads"] as const satisfies readonly ModuleKey[];
+export const modulePath = (def: ModuleDef) => def.path ?? `/dashboard/${def.key}`;
 
 export const moduleKeys = Object.keys(modules) as ModuleKey[];
 

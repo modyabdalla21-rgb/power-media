@@ -7,7 +7,7 @@ export type CrudStrings = Dictionary["dashboard"]["crud"];
 export type ClientField = {
   column: string;
   label: string;
-  type: "text" | "email" | "tel" | "textarea" | "number" | "date" | "select" | "relation";
+  type: "text" | "email" | "tel" | "textarea" | "number" | "date" | "select" | "relation" | "boolean";
   required: boolean;
   options: Option[];
   min?: number;

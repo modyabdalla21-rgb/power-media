@@ -62,7 +62,7 @@ In development, if Supabase isn't configured, the dashboard opens in **preview m
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `sb_publishable_…` key (a legacy anon JWT also works)
    - `SUPABASE_SERVICE_ROLE_KEY`: the `sb_secret_…` key, server only. It's needed to send team invite emails and to remove members.
-2. **Database**: paste `supabase/migrations/0001_initial_schema.sql` into the Supabase SQL Editor and run it. The script is idempotent, so it's safe to run again.
+2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, then `0002_power_ai.sql`. Both scripts are idempotent, so they're safe to run again.
 3. **Make yourself admin**: sign up on the site, confirm your email, then run:
    ```sql
    update public.profiles set role = 'admin' where email = 'you@example.com';
@@ -95,6 +95,21 @@ New sign-ups are `client`. Admins invite staff from **Dashboard → Team**. The 
 | `/[locale]/reset-password` | Set a new password (after a recovery or invite link) |
 | `/auth/callback` | Email-link handler (PKCE code or token hash) |
 | `/[locale]/auth-complete` | Completes links that return tokens in the URL fragment |
+
+## POWER AI
+
+Three tools live at `/[locale]/dashboard/ai`. They're for staff (`admin` and `team`):
+
+| Tool | What it produces |
+|---|---|
+| Ad & Copy Studio | Meta, TikTok and Google Search ads, social posts and short video scripts in English, MSA, Egyptian or Gulf Arabic |
+| Campaign & Media Planner | Campaign structure, audience angles, and a budget and channel allocation that adds up to the given total |
+| Client Report Generator | A client-ready report built from dashboard records plus the results you paste in. It never invents figures. |
+
+- **Providers:** `lib/ai/provider.ts` tries Gemini (`GEMINI_API_KEY`) first, then Anthropic (`ANTHROPIC_API_KEY`) if it's set. On rate limits, quota or a missing model, it falls back to the next model, then the next provider. Keys are sent as opaque strings, and only normalised error codes reach the browser.
+- **AI library** (`/dashboard/ai/history`): every successful generation is saved automatically. Staff can link it to a client or project, rename it, share it with the client, copy it or delete it. Clients see only documents shared with their account.
+- **Access** (`0002_power_ai.sql`): admins manage everything, team members manage their own generations, clients have read-only access to shared ones, and generated content can't be edited after it's saved.
+- **Limits:** `AI_HOURLY_LIMIT` caps generations per user per hour (default 30), to protect the free-tier quota.
 
 ## Project structure
 
@@ -171,6 +186,6 @@ The site doesn't publish invented testimonials, clients, results or prices:
 
 - [x] **Phase 1**: design system, public website, navigation, responsive and RTL layouts, dashboard foundation, AI tool interfaces
 - [x] **Phase 2**: Supabase auth (sign-up, sign-in, reset, invites), roles with RLS, live contact leads, CRUD dashboard, live KPIs and revenue
-- [ ] **Phase 3**: AI provider adapters in `lib/ai/provider.ts` (streaming, usage logging to `ai_generations`, rate limiting, brand profiles)
+- [x] **Phase 3**: POWER AI (Gemini + optional Anthropic), Ad & Copy Studio, Campaign & Media Planner, Client Report Generator, AI library with sharing
 - [ ] **Phase 4**: subscriptions and payments (Stripe plus Paymob, Moyasar or Tap for local methods), client portal
 - [ ] **Phase 5**: tests (unit + Playwright), security review, CSP, performance, deployment (Vercel + Supabase)

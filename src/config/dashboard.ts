@@ -1,8 +1,8 @@
 import {
-  BarChart3, Bot, Briefcase, FileText, FolderKanban, Inbox, LayoutDashboard, ListChecks, Megaphone,
+  BarChart3, Bot, Briefcase, Library, FileText, FolderKanban, Inbox, LayoutDashboard, ListChecks, Megaphone,
   Settings, UsersRound, Wallet, type LucideIcon,
 } from "lucide-react";
-import { ALL, STAFF, modules, type ModuleKey, type Role } from "@/config/modules";
+import { ALL, STAFF, genericModuleKeys, modules, type ModuleKey, type Role } from "@/config/modules";
 import type { Dictionary } from "@/i18n/dictionaries/en";
 
 export type DashboardNavKey = keyof Dictionary["dashboard"]["nav"];
@@ -15,12 +15,13 @@ export const moduleIcons: Record<ModuleKey, LucideIcon> = {
   reports: BarChart3,
   invoices: FileText,
   leads: Inbox,
+  generations: Library,
 };
 
 type NavItem = { key: DashboardNavKey; href: string; icon: LucideIcon; roles: readonly Role[] };
 
 const ADMIN: readonly Role[] = ["admin"];
-const mod = (key: ModuleKey): NavItem => ({ key, href: `/dashboard/${key}`, icon: moduleIcons[key], roles: modules[key].roles.view });
+const mod = (key: (typeof genericModuleKeys)[number]): NavItem => ({ key, href: `/dashboard/${key}`, icon: moduleIcons[key], roles: modules[key].roles.view });
 
 /** Sidebar navigation. Items are filtered by the signed-in user's role. */
 export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; items: NavItem[] }[] = [
@@ -39,7 +40,14 @@ export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; ite
       mod("invoices"),
     ],
   },
-  { group: "ai", items: [{ key: "aiHub", href: "/dashboard/ai", icon: Bot, roles: STAFF }] },
+  {
+    group: "ai",
+    items: [
+      { key: "aiHub", href: "/dashboard/ai", icon: Bot, roles: STAFF },
+      // Clients see documents the agency shared with them.
+      { key: "aiLibrary", href: "/dashboard/ai/history", icon: Library, roles: ALL },
+    ],
+  },
   { group: "system", items: [{ key: "settings", href: "/dashboard/settings", icon: Settings, roles: ALL }] },
 ];
 

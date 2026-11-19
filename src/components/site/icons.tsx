@@ -1,6 +1,6 @@
 import {
-  CalendarDays, Clapperboard, Compass, LayoutTemplate, MessagesSquare, MonitorSmartphone,
-  Palette, PenLine, Radar, Search, Sparkles, Target, TrendingUp, Users, Workflow, type LucideIcon,
+  Clapperboard, FileBarChart, MessagesSquare, MonitorSmartphone, PenLine, Search, Sparkles, Target,
+  TrendingUp, Users, Workflow, type LucideIcon,
 } from "lucide-react";
 import type { ToolKey } from "@/lib/ai/tools";
 
@@ -16,13 +16,9 @@ export const serviceIcons: Record<string, LucideIcon> = {
 };
 
 export const toolIcons: Record<ToolKey, LucideIcon> = {
-  strategist: Compass,
-  copywriter: PenLine,
-  creative: Palette,
-  mediaBuying: Target,
-  contentPlanner: CalendarDays,
-  competitor: Radar,
-  landingPage: LayoutTemplate,
+  adStudio: PenLine,
+  mediaPlanner: Target,
+  reportGenerator: FileBarChart,
 };
 
 /** Icon tile used across services, AI tools and dashboard cards. */

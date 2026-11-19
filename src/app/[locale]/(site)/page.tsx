@@ -126,7 +126,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         <Container className="relative grid gap-14 lg:grid-cols-12">
           <div className="lg:col-span-5">
             <SectionHeading eyebrow={home.ai.eyebrow} title={home.ai.title} subtitle={home.ai.subtitle} />
-            <Badge tone="orange" className="mt-6">{dict.common.inDevelopment}</Badge>
+            <Badge tone="blue" className="mt-6">{dict.common.liveForTeam}</Badge>
             <div className="mt-8">
               <LinkButton href={href("/power-ai")} variant="energy" size="lg">
                 {home.ai.cta}

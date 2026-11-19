@@ -95,6 +95,10 @@ function RecordForm({ moduleKey, title, fields, values, t, onDone, readOnlyView 
               <Label htmlFor={id} required={f.required && !disabled}>{f.label}</Label>
               {f.type === "textarea" ? (
                 <Textarea {...common} rows={f.readOnly ? 5 : 3} maxLength={4000} className={cn(disabled && "opacity-80")} />
+              ) : f.type === "boolean" ? (
+                <Select {...common}>
+                  {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </Select>
               ) : f.type === "select" || f.type === "relation" ? (
                 <Select {...common}>
                   <option value="">{t.select}</option>

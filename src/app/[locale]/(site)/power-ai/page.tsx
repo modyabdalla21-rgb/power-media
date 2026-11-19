@@ -31,7 +31,7 @@ export default async function PowerAiPage({ params }: PageProps<"/[locale]/power
               <Card key={t.key} interactive className={i === 0 ? "flex flex-col lg:col-span-2" : "flex flex-col"}>
                 <div className="flex items-center justify-between gap-3">
                   <IconTile icon={toolIcons[t.key]} tone={i === 0 ? "energy" : "blue"} />
-                  <Badge tone="neutral">{dict.common.inDevelopment}</Badge>
+                  <Badge tone="blue">{dict.common.liveForTeam}</Badge>
                 </div>
                 <h2 className="mt-5 text-xl font-semibold">{tool.name}</h2>
                 <p className="mt-2 leading-relaxed text-ink-muted">{tool.description}</p>

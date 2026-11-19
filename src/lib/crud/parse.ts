@@ -2,7 +2,7 @@ import type { FieldDef } from "@/config/modules";
 
 export type FieldError = "required" | "invalid";
 export type ParseResult =
-  | { ok: true; values: Record<string, string | number | null> }
+  | { ok: true; values: Record<string, string | number | boolean | null> }
   | { ok: false; fieldErrors: Record<string, FieldError> };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -14,7 +14,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * Read-only fields are never written; unknown form keys are ignored.
  */
 export function parseRecord(fields: readonly FieldDef[], fd: FormData, mode: "create" | "update"): ParseResult {
-  const values: Record<string, string | number | null> = {};
+  const values: Record<string, string | number | boolean | null> = {};
   const fieldErrors: Record<string, FieldError> = {};
 
   for (const f of fields) {
@@ -26,6 +26,10 @@ export function parseRecord(fields: readonly FieldDef[], fd: FormData, mode: "cr
       continue;
     }
     switch (f.type) {
+      case "boolean":
+        if (raw !== "true" && raw !== "false") fieldErrors[f.column] = "invalid";
+        else values[f.column] = raw === "true";
+        break;
       case "number": {
         const n = Number(raw);
         if (!Number.isFinite(n) || (f.min !== undefined && n < f.min) || (f.max !== undefined && n > f.max)) fieldErrors[f.column] = "invalid";
