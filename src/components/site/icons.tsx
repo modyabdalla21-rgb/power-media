@@ -1,5 +1,5 @@
 import {
-  Clapperboard, FileBarChart, MessagesSquare, MonitorSmartphone, PenLine, Search, Sparkles, Target,
+  Clapperboard, FileBarChart, Gem, MessagesSquare, MonitorSmartphone, PenLine, Search, Sparkles, Target,
   TrendingUp, Users, Workflow, type LucideIcon,
 } from "lucide-react";
 import type { ToolKey } from "@/lib/ai/tools";
@@ -19,6 +19,7 @@ export const toolIcons: Record<ToolKey, LucideIcon> = {
   adStudio: PenLine,
   mediaPlanner: Target,
   reportGenerator: FileBarChart,
+  brandIdentity: Gem,
 };
 
 /** Icon tile used across services, AI tools and dashboard cards. */

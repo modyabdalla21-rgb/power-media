@@ -6,7 +6,7 @@ import { Field, Input, Select } from "@/components/ui/form";
 import { updateOwnProfile, type ProfileState } from "@/lib/team/actions";
 import type { Dictionary } from "@/i18n/dictionaries/en";
 
-export function ProfileForm({ fullName, email, locale, dict }: { fullName: string; email: string; locale: "en" | "ar"; dict: Dictionary["dashboard"] }) {
+export function ProfileForm({ fullName, email, locale, dict }: { fullName: string; email: string; locale: "en" | "ar" | "eg"; dict: Dictionary["dashboard"] }) {
   const [state, action, pending] = useActionState<ProfileState, FormData>(updateOwnProfile, undefined);
   return (
     <form action={action} className="grid gap-4 p-5 sm:grid-cols-2">
@@ -20,6 +20,7 @@ export function ProfileForm({ fullName, email, locale, dict }: { fullName: strin
         <Select id="pf-locale" name="locale" defaultValue={locale}>
           <option value="en">{dict.options.en}</option>
           <option value="ar">{dict.options.ar}</option>
+          <option value="eg">{dict.options.eg}</option>
         </Select>
       </Field>
       <div className="flex items-end justify-end gap-3 sm:col-span-2">

@@ -68,7 +68,7 @@ const OBJECTIVES: Record<string, string> = {
 const MARKETS: Record<string, string> = { egypt: "Egypt", ksa: "Saudi Arabia", uae: "UAE", gcc: "GCC (multi-market)" };
 const DURATIONS: Record<string, string> = { "2w": "2 weeks", "1m": "1 month", "3m": "3 months" };
 
-export type PromptSpec = { system: string; prompt: string; temperature: number; maxOutputTokens: number };
+export type PromptSpec = { system: string; prompt: string; temperature: number; maxOutputTokens: number; json?: boolean };
 
 const line = (label: string, value?: string) => (value && value.trim() ? `- ${label}: ${value.trim()}` : null);
 const block = (lines: (string | null)[]) => lines.filter(Boolean).join("\n");
@@ -124,6 +124,55 @@ Consider local context: Snapchat's strength in KSA, WhatsApp-led conversion in E
       ])}${contextBlock}`,
       temperature: 0.5,
       maxOutputTokens: 3500,
+    };
+  }
+
+  if (tool.key === "brandIdentity") {
+    const STYLES: Record<string, string> = {
+      modern_minimal: "modern, minimal, geometric, lots of negative space",
+      bold_energetic: "bold, energetic, high-contrast, dynamic shapes",
+      luxury_elegant: "luxury, elegant, refined, restrained palette",
+      playful_friendly: "playful, friendly, rounded shapes, warm colors",
+      heritage_arabic: "heritage-inspired, Arabic calligraphic or geometric-pattern influences, timeless",
+      tech_futuristic: "tech-forward, futuristic, clean lines, digital feel",
+    };
+    return {
+      system: `You are a senior brand strategist and identity designer at POWER MEDIA, creating brand identities for businesses in Egypt and the GCC.
+${COMMON_RULES.replace("Output clean Markdown only", "Output JSON only (no Markdown)")}
+
+${languageRule} (Applies to all human-readable text values. Keep hex codes, font family names and the logo_prompt in English.)
+
+Return ONE JSON object with exactly these keys:
+{
+  "brand_name": string,
+  "tagline": string (short, memorable),
+  "positioning": string (2–3 sentences: who it's for, what makes it different, why it matters),
+  "personality": string[] (3–5 adjectives),
+  "palette": [{ "name": string, "hex": "#RRGGBB", "role": "primary" | "secondary" | "accent" | "neutral" | "background", "usage": string }] (5 colors, accessible contrast between text and background),
+  "typography": { "heading": { "family": string, "why": string }, "body": { "family": string, "why": string }, "arabic": { "family": string, "why": string } } — real Google Fonts only; the Arabic font must support Arabic script (e.g. Cairo, Tajawal, IBM Plex Sans Arabic, Almarai, Readex Pro, El Messiri, Noto Kufi Arabic, Changa, Lalezar, Reem Kufi),
+  "voice": { "do": string[] (3–4), "dont": string[] (3–4), "sample_lines": string[] (2 example lines in the brand voice) },
+  "concepts": [ exactly 3 distinct logo directions, each { "name": string, "idea": string (the visual idea and why it fits), "logo_prompt": string (an English prompt for an AI image generator to render this logo), "svg": string } ]
+}
+
+SVG rules for each concept's "svg" (a simple vector logo mark, not a full illustration):
+- Start with <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"> and end with </svg>; under 2500 characters.
+- Use only <g>, <path>, <circle>, <rect>, <ellipse>, <polygon>, <polyline>, <line>, <text>, <defs>, <linearGradient>, <radialGradient>, <stop>.
+- Use colors from the palette. No scripts, no <style>, no external links, images or fonts; any <text> uses font-family="sans-serif".
+- Keep it centred with comfortable padding; it must read clearly at small sizes.
+The three concepts must differ meaningfully (e.g. monogram, symbol, wordmark/emblem).`,
+      prompt: `Create the brand identity.\n\nBrief:\n${block([
+        line("Brand name", inputs.brand),
+        line("Industry / niche", inputs.industry),
+        line("Main market", MARKETS[inputs.market] ?? inputs.market),
+        line("Target audience", inputs.audience),
+        line("Personality / tone", inputs.personality),
+        line("Visual style", STYLES[inputs.style] ?? inputs.style),
+        line("Color preferences", inputs.colors),
+        line("Avoid", inputs.avoid),
+      ])}${contextBlock}`,
+      temperature: 0.8,
+      maxOutputTokens: 5000,
+      json: true,
     };
   }
 

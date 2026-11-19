@@ -9,7 +9,7 @@ export const contactSchema = z.object({
   service: z.string().trim().max(80).optional().default(""),
   budget: z.string().trim().max(80).optional().default(""),
   message: z.string().trim().min(10).max(4000),
-  locale: z.enum(["en", "ar"]).default("en"),
+  locale: z.enum(["en", "ar", "eg"]).transform((l) => (l === "eg" ? "ar" : l)).default("en"),
   /** Honeypot — bots fill it, humans never see it. */
   website: z.string().max(0).optional().default(""),
 });

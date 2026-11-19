@@ -61,7 +61,7 @@ const ADMIN: readonly Role[] = ["admin"];
 const currencies = ["EGP", "SAR", "AED", "USD"] as const satisfies readonly OptionKey[];
 const markets = ["egypt", "ksa", "uae", "gcc", "other"] as const satisfies readonly OptionKey[];
 
-export type ModuleKey = "clients" | "projects" | "campaigns" | "tasks" | "reports" | "invoices" | "leads" | "generations";
+export type ModuleKey = "clients" | "projects" | "campaigns" | "tasks" | "reports" | "invoices" | "leads" | "generations" | "requests";
 
 export const modules: Record<ModuleKey, ModuleDef> = {
   clients: {
@@ -81,17 +81,24 @@ export const modules: Record<ModuleKey, ModuleDef> = {
       { column: "contact_phone", label: "contactPhone", type: "tel", max: 40 },
       { column: "retainer_amount", label: "retainerAmount", type: "number", min: 0 },
       { column: "currency", label: "currency", type: "select", required: true, options: currencies, defaultValue: "USD" },
+      { column: "plan_tier", label: "planTier", type: "select", required: true, options: ["free", "growth", "pro"], defaultValue: "free" },
       { column: "owner_id", label: "owner", type: "relation", relation: "staff" },
       { column: "portal_user_id", label: "portalUser", type: "relation", relation: "clientUsers" },
+      { column: "audience", label: "audience", type: "textarea", max: 2000 },
+      { column: "tone", label: "tone", type: "text", max: 300 },
+      { column: "dialect", label: "dialect", type: "select", options: ["en", "ar_msa", "ar_eg", "ar_gulf"] },
+      { column: "website", label: "website", type: "text", max: 300 },
+      { column: "brand_notes", label: "brandNotes", type: "textarea", wide: true, max: 4000 },
       { column: "notes", label: "notes", type: "textarea", wide: true },
     ],
     columns: [
       { kind: "text", column: "name", label: "name", strong: true, secondary: "industry" },
       { kind: "option", column: "market", label: "market" },
       { kind: "badge", column: "status", label: "status" },
+      { kind: "badge", column: "plan_tier", label: "planTier" },
+      { kind: "option", column: "source", label: "source" },
       { kind: "money", column: "retainer_amount", currencyColumn: "currency", label: "retainerAmount" },
       { kind: "relation", path: "owner", label: "owner" },
-      { kind: "text", column: "contact_email", label: "contactEmail" },
     ],
     roles: { view: STAFF, create: STAFF, update: STAFF, delete: ADMIN },
   },
@@ -263,7 +270,7 @@ export const modules: Record<ModuleKey, ModuleDef> = {
     path: "/dashboard/ai/history",
     select: "*, client:clients(name), project:projects(name), author:profiles!ai_generations_user_id_fkey(full_name, email)",
     search: ["title", "output"],
-    filter: { column: "tool", options: ["adStudio", "mediaPlanner", "reportGenerator"] },
+    filter: { column: "tool", options: ["adStudio", "mediaPlanner", "reportGenerator", "brandIdentity"] },
     order: { column: "created_at", ascending: false },
     fields: [
       { column: "title", label: "title", type: "text", required: true, max: 200, wide: true },
@@ -279,13 +286,39 @@ export const modules: Record<ModuleKey, ModuleDef> = {
       { kind: "boolean", column: "shared_with_client", label: "sharedWithClient" },
       { kind: "date", column: "created_at", label: "createdAt" },
     ],
-    // RLS: team edits/deletes their own; admin any; clients read shared items.
-    roles: { view: ALL, create: [], update: STAFF, delete: STAFF },
+    // RLS: team edits their own, admin any; anyone deletes their own items;
+    // clients read their own generations plus items shared with them.
+    roles: { view: ALL, create: [], update: STAFF, delete: ALL },
+  },
+  requests: {
+    key: "requests",
+    table: "client_requests",
+    select: "*, client:clients(name), requester:profiles!client_requests_requested_by_fkey(full_name, email)",
+    search: ["message", "notes"],
+    filter: { column: "status", options: ["new", "contacted", "done"] },
+    order: { column: "created_at", ascending: false },
+    fields: [
+      { column: "kind", label: "kind", type: "select", options: ["upgrade", "brand_help", "general"], readOnly: true },
+      { column: "requested_tier", label: "requestedTier", type: "select", options: ["growth", "pro"], readOnly: true },
+      { column: "message", label: "message", type: "textarea", readOnly: true, wide: true },
+      { column: "status", label: "status", type: "select", required: true, options: ["new", "contacted", "done"], defaultValue: "new" },
+      { column: "notes", label: "notes", type: "textarea", wide: true },
+    ],
+    columns: [
+      { kind: "relation", path: "client", label: "client" },
+      { kind: "option", column: "kind", label: "kind" },
+      { kind: "option", column: "requested_tier", label: "requestedTier" },
+      { kind: "relation", path: "requester", label: "requestedBy" },
+      { kind: "badge", column: "status", label: "status" },
+      { kind: "date", column: "created_at", label: "createdAt" },
+    ],
+    // Clients create requests from Plan / Brand pages (server actions).
+    roles: { view: STAFF, create: [], update: STAFF, delete: ADMIN },
   },
 };
 
 /** Modules served by the generic /dashboard/[module] route. */
-export const genericModuleKeys = ["clients", "projects", "campaigns", "tasks", "reports", "invoices", "leads"] as const satisfies readonly ModuleKey[];
+export const genericModuleKeys = ["clients", "projects", "campaigns", "tasks", "reports", "invoices", "leads", "requests"] as const satisfies readonly ModuleKey[];
 export const modulePath = (def: ModuleDef) => def.path ?? `/dashboard/${def.key}`;
 
 export const moduleKeys = Object.keys(modules) as ModuleKey[];

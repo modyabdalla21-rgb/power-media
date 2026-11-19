@@ -5,7 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { isSupabaseConfigured, publicEnv } from "@/lib/env";
 
 export type Role = "admin" | "team" | "client";
-export type Profile = { id: string; email: string; full_name: string | null; role: Role; locale: "en" | "ar" };
+export type Profile = { id: string; email: string; full_name: string | null; role: Role; locale: "en" | "ar" | "eg" };
 
 /** Supabase client for Server Components, Server Actions and Route Handlers. */
 export async function createSupabaseServerClient() {

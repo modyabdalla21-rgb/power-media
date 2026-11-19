@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
     metadataBase: new URL(metadataBaseUrl),
     title: { default: dict.meta.title, template: `%s · POWER MEDIA` },
     description: dict.meta.description,
-    alternates: { canonical: `/${locale}`, languages: { en: "/en", ar: "/ar" } },
+    alternates: { canonical: `/${locale}`, languages: { en: "/en", ar: "/ar", "ar-EG": "/eg" } },
     openGraph: {
       type: "website",
       siteName: "POWER MEDIA",

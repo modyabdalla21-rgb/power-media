@@ -11,7 +11,7 @@ import { CtaBand } from "@/components/site/cta-band";
 import { IconTile, serviceIcons, toolIcons } from "@/components/site/icons";
 import { PortfolioPlaceholder } from "@/components/site/portfolio-placeholder";
 import { portfolio, testimonials } from "@/content/portfolio";
-import { isLocale, localizedHref } from "@/i18n/config";
+import { contentLocale, isLocale, localizedHref } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { aiTools } from "@/lib/ai/tools";
 
@@ -214,9 +214,9 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
               {testimonials.map((t) => (
                 <Card key={t.author} className="flex flex-col">
                   <Quote className="size-6 text-blue" aria-hidden />
-                  <blockquote className="mt-4 flex-1 leading-relaxed">{t.quote[locale]}</blockquote>
+                  <blockquote className="mt-4 flex-1 leading-relaxed">{t.quote[contentLocale(locale)]}</blockquote>
                   <p className="mt-6 font-semibold">{t.author}</p>
-                  <p className="text-sm text-ink-muted">{t.role[locale]}, {t.company}</p>
+                  <p className="text-sm text-ink-muted">{t.role[contentLocale(locale)]}, {t.company}</p>
                 </Card>
               ))}
             </div>

@@ -62,7 +62,7 @@ In development, if Supabase isn't configured, the dashboard opens in **preview m
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `sb_publishable_…` key (a legacy anon JWT also works)
    - `SUPABASE_SERVICE_ROLE_KEY`: the `sb_secret_…` key, server only. It's needed to send team invite emails and to remove members.
-2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, then `0002_power_ai.sql`. Both scripts are idempotent, so they're safe to run again.
+2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, `0002_power_ai.sql`, then `0003_client_self_serve.sql`. Each script is idempotent, so it's safe to run again.
 3. **Make yourself admin**: sign up on the site, confirm your email, then run:
    ```sql
    update public.profiles set role = 'admin' where email = 'you@example.com';
@@ -110,6 +110,19 @@ Three tools live at `/[locale]/dashboard/ai`. They're for staff (`admin` and `te
 - **AI library** (`/dashboard/ai/history`): every successful generation is saved automatically. Staff can link it to a client or project, rename it, share it with the client, copy it or delete it. Clients see only documents shared with their account.
 - **Access** (`0002_power_ai.sql`): admins manage everything, team members manage their own generations, clients have read-only access to shared ones, and generated content can't be edited after it's saved.
 - **Limits:** `AI_HOURLY_LIMIT` caps generations per user per hour (default 30), to protect the free-tier quota.
+
+## Client self-serve
+
+- **Sign-up → workspace:** every client sign-up gets their own workspace automatically (a `clients` row with `source = self_serve`, plan `free`), created by the sign-up trigger, or by `ensure_client_workspace()` on first visit for older accounts. No admin approval is needed.
+- **Onboarding:** first-time clients land on `/dashboard/onboarding` (Brand profile), then go to the AI identity generator if they don't have a logo yet.
+- **Brand kit:** `/dashboard/brand` holds the profile and the active brand kit (`brand_kits`, one active per client). All POWER AI tools add the brand profile and active kit to their prompts.
+- **AI Logo & Brand Identity:** `/dashboard/ai/brand-identity` returns structured JSON with positioning, palette, typography, voice and three SVG logo concepts. Any concept can be applied as the active kit. SVGs are sanitised against an allow-list and only ever rendered through `<img>` data URIs.
+- **Plans:** `clients.plan_tier` (`free` / `growth` / `pro`), with limits in `src/config/plans.ts`. Usage is counted monthly from `ai_generations` and enforced before any AI call. At the limit, an upgrade modal creates a `client_requests` row. Staff handle requests in **Client requests** and change the tier in **Clients**. There's no payment gateway yet.
+- **Access:** clients can edit only their own workspace's brand fields (a trigger protects plan, status, retainer and notes), plus their own brand kits, generations and requests.
+
+## Egyptian mode (مصري)
+
+`/eg` is a third UI locale: right-to-left, `lang="ar-EG"`. Its dictionary is Arabic plus Egyptian colloquial overrides from `src/i18n/dictionaries/eg.ts`. `npm run i18n:check` validates that every override key exists in English with matching placeholders. Choosing Egypt during onboarding offers to switch the interface.
 
 ## Project structure
 

@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
+import { getActiveBrandKit, getClientWorkspace } from "@/lib/client/workspace";
 import { PageHeader } from "@/components/dashboard/primitives";
 import { ToolWorkspace, type ClientToolField } from "@/components/ai/tool-workspace";
 import { IconTile, toolIcons } from "@/components/site/icons";
-import { localizedHref, locales } from "@/i18n/config";
+import { contentLocale, localizedHref, locales } from "@/i18n/config";
 import { aiTools, getToolBySlug } from "@/lib/ai/tools";
 import { loadPage } from "@/lib/page";
 import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/server";
@@ -28,49 +29,88 @@ export default async function AiToolPage({ params }: PageProps<"/[locale]/dashbo
   const tool = getToolBySlug(slug);
   if (!tool) notFound();
   const profile = await getCurrentProfile();
-  if (profile?.role === "client") redirect(localizedHref(locale, "/dashboard/ai/history"));
+  const isClient = profile?.role === "client";
+  if (isClient && tool.access !== "all") redirect(localizedHref(locale, "/dashboard/ai"));
   const meta = dict.aiTools[tool.key];
+  const cl = contentLocale(locale);
+  const t = dict.dashboard.ai;
 
-  // Link targets (RLS-scoped). Projects carry their client for filtering.
   const supabase = await createSupabaseServerClient();
-  const [clients, projects] = supabase
-    ? await Promise.all([
-        supabase.from("clients").select("id, name").order("name").limit(500),
-        supabase.from("projects").select("id, name, client_id, client:clients(name)").order("name").limit(500),
-      ])
-    : [{ data: [] }, { data: [] }];
+  const workspace = isClient ? await getClientWorkspace() : null;
+  const kit = supabase && workspace ? await getActiveBrandKit(supabase, workspace.id) : null;
+
+  // Staff link outputs to clients/projects (RLS-scoped); clients always work in their own workspace.
+  const [clients, projects] =
+    supabase && !isClient
+      ? await Promise.all([
+          supabase.from("clients").select("id, name").order("name").limit(500),
+          supabase.from("projects").select("id, name, client_id, client:clients(name)").order("name").limit(500),
+        ])
+      : [{ data: [] }, { data: [] }];
   const clientOptions = (clients.data ?? []).map((c) => ({ value: c.id as string, label: c.name as string }));
   const projectOptions = (projects.data ?? []).map((p) => {
     const client = (p.client as unknown as { name: string } | null)?.name;
     return { value: p.id as string, label: client ? `${p.name} — ${client}` : (p.name as string), clientId: p.client_id as string };
   });
 
+  // Prefill from the client's brand profile.
+  const prefill: Record<string, string | null | undefined> = workspace
+    ? {
+        brand: workspace.name,
+        industry: workspace.industry,
+        audience: workspace.audience,
+        personality: workspace.tone,
+        market: workspace.market && workspace.market !== "other" ? workspace.market : undefined,
+        language: workspace.dialect ?? (locale === "eg" ? "ar_eg" : locale === "ar" ? "ar_msa" : undefined),
+      }
+    : locale === "eg"
+      ? { language: "ar_eg" }
+      : {};
+
   // Only serialisable labels/options go to the client — prompts stay on the server.
-  const fields: ClientToolField[] = tool.fields.map((f) => ({
-    name: f.name,
-    type: f.type,
-    required: !!f.required,
-    label: f.label[locale],
-    placeholder: f.placeholder?.[locale],
-    options: f.type === "client" ? clientOptions : f.type === "project" ? projectOptions : (f.options ?? []).map((o) => ({ value: o.value, label: o.label[locale] })),
-    defaultValue: f.defaultValue,
-    max: f.max,
-    wide: f.wide,
-  }));
+  const fields: ClientToolField[] = tool.fields
+    .filter((f) => !isClient || (f.type !== "client" && f.type !== "project"))
+    .map((f) => {
+      const options = f.type === "client" ? clientOptions : f.type === "project" ? projectOptions : (f.options ?? []).map((o) => ({ value: o.value, label: o.label[cl] }));
+      const pre = prefill[f.name];
+      const usable = pre && (f.type !== "select" || options.some((o) => o.value === pre));
+      return {
+        name: f.name,
+        type: f.type,
+        required: !!f.required,
+        label: f.label[cl],
+        placeholder: f.placeholder?.[cl],
+        options,
+        defaultValue: usable ? (pre as string) : f.defaultValue,
+        max: f.max,
+        wide: f.wide,
+      };
+    });
+
+  const brandNote =
+    isClient && tool.output !== "identity"
+      ? kit
+        ? { text: t.brandContext.replace("{name}", kit.name) }
+        : { text: t.noBrandKit, warn: true }
+      : null;
 
   return (
     <div className="space-y-8">
       <div className="flex items-start gap-4">
         <IconTile icon={toolIcons[tool.key]} tone="energy" className="mt-1 hidden sm:inline-flex" />
-        <div className="flex-1"><PageHeader title={meta.name} description={meta.description} /></div>
+        <div className="flex-1"><PageHeader title={tool.output === "identity" ? dict.dashboard.identity.title : meta.name} description={tool.output === "identity" ? dict.dashboard.identity.subtitle : meta.description} /></div>
       </div>
       <ToolWorkspace
         slug={tool.slug}
         fields={fields}
-        t={dict.dashboard.ai}
-        crud={{ required: dict.dashboard.crud.required, invalid: dict.dashboard.crud.invalid }}
+        t={t}
+        d={dict.dashboard}
         libraryHref={localizedHref(locale, "/dashboard/ai/history")}
         languageField={tool.languageField}
+        mode={tool.output}
+        brandNote={brandNote}
+        brandHref={isClient ? localizedHref(locale, "/dashboard/brand") : undefined}
+        canApply={tool.output === "identity"}
       />
     </div>
   );

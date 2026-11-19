@@ -3,6 +3,9 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AlertCircle, Check, CheckCircle2, Copy, ExternalLink, Info, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { Markdown } from "@/components/ai/markdown";
+import { IdentityConceptsView } from "@/components/brand/identity-view";
+import { UpgradeModal, type LimitInfo } from "@/components/client/upgrade-modal";
+import type { BrandIdentity } from "@/lib/ai/identity";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/form";
 import type { Dictionary } from "@/i18n/dictionaries/en";
@@ -25,7 +28,7 @@ type ErrorCode = keyof T["errors"];
 type State =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "done"; text: string; id: string | null; truncated: boolean; language: string }
+  | { kind: "done"; text: string; id: string | null; truncated: boolean; language: string; identity: BrandIdentity | null }
   | { kind: "error"; code: ErrorCode; retryAfter?: number };
 
 /**
@@ -33,14 +36,22 @@ type State =
  * output. The server validates, generates, saves to the AI library and
  * returns only normalised error codes.
  */
-export function ToolWorkspace({ slug, fields, t, crud, libraryHref, languageField }: {
+export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, mode = "markdown", brandNote, brandHref, canApply }: {
   slug: string;
   fields: ClientToolField[];
   t: T;
-  crud: { required: string; invalid: string };
+  d: Dictionary["dashboard"];
   libraryHref: string;
   languageField: string;
+  /** "identity": structured brand identity with apply-as-brand-kit actions. */
+  mode?: "markdown" | "identity";
+  /** e.g. "Using your active brand kit: …" (clients). */
+  brandNote?: { text: string; warn?: boolean } | null;
+  brandHref?: string;
+  canApply?: boolean;
 }) {
+  const crud = d.crud;
+  const [limit, setLimit] = useState<LimitInfo | null>(null);
   const [state, setState] = useState<State>({ kind: "idle" });
   const [fieldErrors, setFieldErrors] = useState<Record<string, "required" | "invalid">>({});
   const [copied, setCopied] = useState(false);
@@ -78,9 +89,10 @@ export function ToolWorkspace({ slug, fields, t, crud, libraryHref, languageFiel
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && typeof data.text === "string") {
-        setState({ kind: "done", text: data.text, id: data.id ?? null, truncated: !!data.truncated, language: data.language ?? inputs[languageField] ?? "en" });
+        setState({ kind: "done", text: data.text, id: data.id ?? null, truncated: !!data.truncated, language: data.language ?? inputs[languageField] ?? "en", identity: data.identity ?? null });
         return;
       }
+      if (data.code === "planLimit") setLimit({ tier: data.tier ?? "free", quota: data.quota === "identity" ? "identity" : "ai", limit: Number(data.limit) || 0 });
       if (data.fields) setFieldErrors(data.fields);
       // A platform-level timeout (e.g. Vercel 504) returns no JSON code.
       const code: ErrorCode =
@@ -167,6 +179,12 @@ export function ToolWorkspace({ slug, fields, t, crud, libraryHref, languageFiel
     <div className="grid gap-6 xl:grid-cols-5">
       <form onSubmit={onSubmit} className="surface-card space-y-5 p-6 xl:col-span-2 xl:self-start" noValidate>
         <h2 className="text-sm font-semibold">{t.inputTitle}</h2>
+        {brandNote && (
+          <p className={brandNote.warn ? "flex items-start gap-2 rounded-lg border border-orange/30 bg-orange/10 p-2.5 text-xs text-yellow" : "flex items-start gap-2 rounded-lg border border-blue/25 bg-blue/10 p-2.5 text-xs text-blue-300"}>
+            <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            {brandHref ? <Link href={brandHref} className="hover:underline">{brandNote.text}</Link> : brandNote.text}
+          </p>
+        )}
         {linksRequired && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">{linkFields.map(renderField)}</div>}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">{mainFields.map(renderField)}</div>
         {!linksRequired && linkFields.length > 0 && (
@@ -225,6 +243,11 @@ export function ToolWorkspace({ slug, fields, t, crud, libraryHref, languageFiel
               <span>
                 {t.errors[state.code]}
                 {state.retryAfter && state.retryAfter < 600 ? ` ${t.retryIn.replace("{seconds}", String(state.retryAfter))}` : ""}
+                {state.code === "planLimit" && (
+                  <button type="button" onClick={() => setLimit((l) => l ?? { tier: "free", quota: "ai", limit: 0 })} className="ms-2 font-semibold text-white underline underline-offset-2">
+                    {d.plan.seePlans}
+                  </button>
+                )}
               </span>
             </div>
           )}
@@ -236,12 +259,17 @@ export function ToolWorkspace({ slug, fields, t, crud, libraryHref, languageFiel
                 <p className="flex items-start gap-2 text-xs text-yellow"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />{t.notSaved}</p>
               )}
               {state.truncated && <p className="flex items-start gap-2 text-xs text-yellow"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />{t.truncated}</p>}
-              <Markdown text={state.text} dir={outputDir} />
+              {mode === "identity" && state.identity ? (
+                <IdentityConceptsView identity={state.identity} d={d} generationId={state.id} canApply={canApply && !!state.id} brandHref={brandHref} dir={outputDir} />
+              ) : (
+                <Markdown text={state.text} dir={outputDir} />
+              )}
               <p className="border-t border-line pt-4 text-xs text-ink-subtle">{t.disclaimer}</p>
             </div>
           )}
         </div>
       </section>
+      <UpgradeModal info={limit} d={d} onClose={() => setLimit(null)} />
     </div>
   );
 }

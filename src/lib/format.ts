@@ -1,7 +1,7 @@
 import type { Locale } from "@/i18n/config";
 
 /** Arabic UI with Latin digits — clearer for figures across Egypt and the Gulf. */
-export const intlLocale = (locale: Locale) => (locale === "ar" ? "ar-EG-u-nu-latn" : "en-GB");
+export const intlLocale = (locale: Locale) => (locale === "en" ? "en-GB" : "ar-EG-u-nu-latn");
 
 export function formatMoney(amount: unknown, currency: unknown, locale: Locale) {
   const n = typeof amount === "number" ? amount : Number(amount);

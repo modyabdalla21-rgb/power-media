@@ -7,6 +7,8 @@ export type GenerateParams = {
   prompt: string;
   temperature: number;
   maxOutputTokens: number;
+  /** Ask for a JSON response (Gemini JSON mode; others via the prompt). */
+  json?: boolean;
   signal?: AbortSignal;
 };
 

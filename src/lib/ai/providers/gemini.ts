@@ -70,6 +70,7 @@ export function createGeminiProvider(apiKey: string, models: string[]): AiProvid
           generationConfig: {
             temperature: p.temperature,
             maxOutputTokens: p.maxOutputTokens,
+            ...(p.json ? { responseMimeType: "application/json" } : {}),
             ...(thinkingConfig(mode) ? { thinkingConfig: thinkingConfig(mode) } : {}),
           },
         }),

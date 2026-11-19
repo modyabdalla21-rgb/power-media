@@ -117,7 +117,7 @@ export async function updateOwnProfile(_prev: ProfileState, fd: FormData): Promi
   const supabase = await createSupabaseServerClient();
   if (!profile || !supabase) return { error: "notConfigured" };
   const parsed = z
-    .object({ full_name: z.string().trim().min(1).max(120), locale: z.enum(["en", "ar"]) })
+    .object({ full_name: z.string().trim().min(1).max(120), locale: z.enum(["en", "ar", "eg"]) })
     .safeParse({ full_name: fd.get("full_name"), locale: fd.get("locale") });
   if (!parsed.success) return { error: "invalid" };
   const { error } = await supabase.from("profiles").update(parsed.data).eq("id", profile.id);

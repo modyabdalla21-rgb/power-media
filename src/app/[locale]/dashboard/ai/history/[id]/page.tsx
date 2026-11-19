@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Eye, Lock } from "lucide-react";
 import { CopyButton } from "@/components/ai/copy-button";
 import { Markdown } from "@/components/ai/markdown";
+import { IdentityConceptsView } from "@/components/brand/identity-view";
+import type { BrandIdentity } from "@/lib/ai/identity";
 import { clientFields } from "@/components/dashboard/crud/module-view";
 import { ConfirmDelete } from "@/components/dashboard/crud/delete-button";
 import { RecordDialog } from "@/components/dashboard/crud/record-dialog";
 import { StatusBadge } from "@/components/dashboard/crud/status-badge";
 import { can, modules } from "@/config/modules";
-import { localizedHref } from "@/i18n/config";
+import { contentLocale, localizedHref } from "@/i18n/config";
 import { deleteRecord } from "@/lib/crud/actions";
 import { loadRelationOptions } from "@/lib/crud/queries";
 import { getToolByKey, isArabicOutput } from "@/lib/ai/tools";
@@ -19,7 +21,7 @@ import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/se
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Generation = {
-  id: string; title: string; tool: string; output: string | null; inputs: Record<string, string> | null;
+  id: string; title: string; tool: string; output: string | null; inputs: Record<string, string> | null; data: BrandIdentity | null;
   provider: string | null; model: string | null; language: string | null; tokens_in: number | null; tokens_out: number | null;
   truncated: boolean; shared_with_client: boolean; client_id: string | null; project_id: string | null; user_id: string; created_at: string;
   client: { name: string } | null; project: { name: string } | null; author: { full_name: string | null; email: string } | null;
@@ -49,6 +51,8 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
   const isStaff = profile.role !== "client";
   // Mirrors RLS: team edits/deletes own items, admin any.
   const canManage = can(profile.role, def.roles.update) && (g.user_id === profile.id || profile.role === "admin");
+  const canDelete = g.user_id === profile.id || profile.role === "admin";
+  const canApply = !!g.client_id && (isStaff || g.user_id === profile.id);
   const relations = canManage ? await loadRelationOptions(supabase, ["clients", "projects"]) : {};
   const fields = clientFields(def, dict, relations);
   const values = { id: g.id, title: g.title, client_id: g.client_id ?? "", project_id: g.project_id ?? "", shared_with_client: String(g.shared_with_client) };
@@ -60,7 +64,7 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
   const brief = isStaff && tool && g.inputs
     ? tool.fields
         .filter((f) => g.inputs?.[f.name] && f.type !== "client" && f.type !== "project")
-        .map((f) => ({ label: f.label[locale], value: f.options?.find((o) => o.value === g.inputs?.[f.name])?.label[locale] ?? g.inputs![f.name] }))
+        .map((f) => ({ label: f.label[contentLocale(locale)], value: f.options?.find((o) => o.value === g.inputs?.[f.name])?.label[contentLocale(locale)] ?? g.inputs![f.name] }))
     : [];
 
   return (
@@ -81,11 +85,9 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {g.output && <CopyButton text={g.output} label={t.copy} copiedLabel={t.copied} />}
           {canManage && (
-            <>
-              <RecordDialog moduleKey="generations" title={`${dict.dashboard.crud.editTitle} — ${g.title}`} fields={fields} values={values} t={dict.dashboard.crud} triggerVariant="edit" triggerLabel={dict.dashboard.crud.edit} />
-              <ConfirmDelete action={deleteRecord} hidden={{ _module: "generations", _id: g.id, _redirect: libraryHref }} t={dict.dashboard.crud} />
-            </>
+            <RecordDialog moduleKey="generations" title={`${dict.dashboard.crud.editTitle} — ${g.title}`} fields={fields} values={values} t={dict.dashboard.crud} triggerVariant="edit" triggerLabel={dict.dashboard.crud.edit} />
           )}
+          {canDelete && <ConfirmDelete action={deleteRecord} hidden={{ _module: "generations", _id: g.id, _redirect: libraryHref }} t={dict.dashboard.crud} />}
         </div>
       </div>
 
@@ -93,7 +95,11 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
         <article className="surface-card p-6 sm:p-8 xl:col-span-3">
           {!isStaff && <p className="mb-6 text-xs text-ink-subtle">{d.clientView}</p>}
           {g.truncated && <p className="mb-4 text-xs text-yellow">{t.truncated}</p>}
-          <Markdown text={g.output ?? ""} dir={dir} />
+          {g.tool === "brandIdentity" && g.data?.concepts ? (
+            <IdentityConceptsView identity={g.data} d={dict.dashboard} generationId={g.id} canApply={canApply} brandHref={profile.role === "client" ? localizedHref(locale, "/dashboard/brand") : undefined} dir={dir} />
+          ) : (
+            <Markdown text={g.output ?? ""} dir={dir} />
+          )}
           {isStaff && <p className="mt-8 border-t border-line pt-4 text-xs text-ink-subtle">{t.disclaimer}</p>}
         </article>
 

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { loadContext } from "@/lib/ai/context";
+import { identityToMarkdown, parseIdentity, type BrandIdentity } from "@/lib/ai/identity";
 import { buildPrompt } from "@/lib/ai/prompts";
-import { generateText } from "@/lib/ai/provider";
+import { GENERATION_DEADLINE_MS, generateText } from "@/lib/ai/provider";
 import { getToolBySlug, type ToolDefinition } from "@/lib/ai/tools";
 import { AiError } from "@/lib/ai/types";
 import { isDashboardPreview } from "@/lib/env";
 import { serverEnv } from "@/lib/env.server";
+import { brandContextText, getActiveBrandKit, getClientWorkspace, getUsage } from "@/lib/client/workspace";
 import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/server";
 
 // Allow up to 60s on Vercel (Hobby without Fluid compute defaults to 10s).
@@ -46,28 +48,41 @@ function validate(tool: ToolDefinition, raw: Record<string, string>) {
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status });
 
+const BRAND_COLUMNS = "name, industry, market, audience, tone, dialect, website, brand_notes";
+
 export async function POST(request: Request, ctx: { params: Promise<{ tool: string }> }) {
   const { tool: slug } = await ctx.params;
   const tool = getToolBySlug(slug);
   if (!tool) return json({ code: "badRequest" }, 404);
 
-  // ── Auth: staff only (clients can read shared outputs, not generate).
+  // ── Auth: staff use every tool; clients only tools open to them, in their own workspace.
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile();
   if (supabase) {
     if (!profile) return json({ code: "unauthorized" }, 401);
-    if (profile.role === "client") return json({ code: "forbidden" }, 403);
+    if (profile.role === "client" && tool.access !== "all") return json({ code: "forbidden" }, 403);
   } else if (!isDashboardPreview) {
     return json({ code: "unauthorized" }, 401);
   }
+  const isClient = profile?.role === "client";
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json({ code: "badRequest" }, 400);
-  const { values, errors } = validate(tool, parsed.data.inputs);
+  const raw = { ...parsed.data.inputs };
+
+  // Clients: generation is always for their own workspace (never another client / project).
+  const workspace = isClient ? await getClientWorkspace() : null;
+  if (isClient) {
+    if (!workspace) return json({ code: "noWorkspace" }, 409);
+    raw.client_id = workspace.id;
+    delete raw.project_id;
+  }
+
+  const { values, errors } = validate(tool, raw);
   if (Object.keys(errors).length) return json({ code: "invalidInput", fields: errors }, 422);
 
-  // ── Per-user hourly cap (protects the shared free-tier quota).
   if (supabase && profile) {
+    // ── Per-user hourly cap (protects the shared provider quota).
     const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { count } = await supabase
       .from("ai_generations")
@@ -75,6 +90,15 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       .eq("user_id", profile.id)
       .gte("created_at", since);
     if ((count ?? 0) >= serverEnv.aiHourlyLimit) return json({ code: "userLimit", retryAfter: 3600 }, 429);
+
+    // ── Client plan quota (checked before any AI call).
+    if (isClient && workspace) {
+      const usage = await getUsage(supabase, profile.id, workspace);
+      const bucket = usage[tool.quota];
+      if (bucket.used >= bucket.limit) {
+        return json({ code: "planLimit", tier: usage.tier, quota: tool.quota, limit: bucket.limit, used: bucket.used }, 402);
+      }
+    }
   }
 
   // ── Context from dashboard records (RLS-scoped to the caller).
@@ -95,9 +119,37 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
     }
   }
 
+  // ── Brand profile + active brand kit keep every output on-brand.
+  let brandContext = "";
+  let brandKitName: string | null = null;
+  if (supabase && values.client_id) {
+    const [{ data: brand }, kit] = await Promise.all([
+      supabase.from("clients").select(BRAND_COLUMNS).eq("id", values.client_id).maybeSingle(),
+      // A new identity shouldn't copy the current one.
+      tool.output === "identity" ? Promise.resolve(null) : getActiveBrandKit(supabase, values.client_id),
+    ]);
+    brandContext = brandContextText(brand, kit);
+    brandKitName = kit?.name ?? null;
+  }
+  const context = [brandContext, ctxData.text].filter(Boolean).join("\n\n");
+
   try {
-    const spec = buildPrompt(tool, values, ctxData.text);
-    const result = await generateText(spec);
+    const spec = buildPrompt(tool, values, context);
+    const started = Date.now();
+    let result = await generateText(spec);
+
+    let identity: BrandIdentity | null = null;
+    if (tool.output === "identity") {
+      identity = parseIdentity(result.text);
+      // One retry for malformed JSON — only if it fits in the function's time limit.
+      const left = GENERATION_DEADLINE_MS - (Date.now() - started) - 3_000;
+      if (!identity && left > 12_000) {
+        result = await generateText(spec, left);
+        identity = parseIdentity(result.text);
+      }
+      if (!identity) throw new AiError("badRequest", "identity output could not be parsed");
+    }
+    const outputText = identity ? identityToMarkdown(identity) : result.text;
 
     const subject =
       tool.key === "reportGenerator"
@@ -114,7 +166,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
           tool: tool.key,
           title,
           inputs: values,
-          output: result.text.slice(0, 100_000),
+          output: outputText.slice(0, 100_000),
+          data: identity,
           provider: result.provider,
           model: result.model,
           language: values[tool.languageField] ?? null,
@@ -130,7 +183,16 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       id = data?.id ?? null;
     }
 
-    return json({ text: result.text, id, truncated: result.truncated, provider: result.provider, model: result.model, language: values[tool.languageField] ?? "en" });
+    return json({
+      text: outputText,
+      identity,
+      id,
+      truncated: result.truncated,
+      provider: result.provider,
+      model: result.model,
+      language: values[tool.languageField] ?? "en",
+      brandKit: brandKitName,
+    });
   } catch (err) {
     const e = err instanceof AiError ? err : new AiError("unknown", String(err));
     if (!(err instanceof AiError)) console.error("[ai] unexpected", err);

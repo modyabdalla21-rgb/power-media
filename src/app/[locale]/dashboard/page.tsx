@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { SvgLogo } from "@/components/brand/brand-visuals";
+import { getActiveBrandKit, getClientWorkspace, getUsage, type Workspace } from "@/lib/client/workspace";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BarChart3, Briefcase, CalendarClock, CheckCircle2, FileText, FolderKanban, Inbox, ListChecks, Megaphone, Plus, Wallet } from "lucide-react";
 import { EmptyState, PageHeader, Panel, StatCard } from "@/components/dashboard/primitives";
@@ -40,6 +43,10 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
 
   if (!supabase || !profile) return <PreviewOverview dict={dict} locale={locale} />;
 
+  // Self-serve clients: workspace is provisioned on first visit; brand setup comes first.
+  const workspace = profile.role === "client" ? await getClientWorkspace() : null;
+  if (workspace && !workspace.onboarded_at) redirect(localizedHref(locale, "/dashboard/onboarding"));
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -48,7 +55,10 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
       />
       {notice}
       {profile.role === "client" ? (
-        <ClientOverview supabase={supabase} dict={dict} locale={locale} />
+        <>
+          {workspace && <WorkspaceSummary supabase={supabase} dict={dict} locale={locale} workspace={workspace} userId={profile.id} />}
+          <ClientOverview supabase={supabase} dict={dict} locale={locale} />
+        </>
       ) : (
         <StaffOverview supabase={supabase} dict={dict} locale={locale} profile={profile} />
       )}
@@ -197,6 +207,8 @@ async function ClientOverview({ supabase, dict, locale }: { supabase: SupabaseCl
   if (!linked) {
     return <div className="surface-card"><EmptyState icon={Briefcase} title={o.noData} body={o.noClientAccount} /></div>;
   }
+  // Self-serve workspaces with no agency work yet: keep the overview focused on brand & AI.
+  if (!projects && !campaigns && !reports && !outstanding && !projectRows.data?.length) return null;
 
   return (
     <>
@@ -227,6 +239,64 @@ async function ClientOverview({ supabase, dict, locale }: { supabase: SupabaseCl
         )}
       </Panel>
     </>
+  );
+}
+
+/** Client workspace: brand kit, plan usage and on-brand AI tools. */
+async function WorkspaceSummary({ supabase, dict, locale, workspace, userId }: { supabase: SupabaseClient; dict: Dictionary; locale: Locale; workspace: Workspace; userId: string }) {
+  const d = dict.dashboard;
+  const [kit, usage] = await Promise.all([getActiveBrandKit(supabase, workspace.id), getUsage(supabase, userId, workspace)]);
+  const clientTools = aiTools.filter((tool) => tool.access === "all");
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <Link href={localizedHref(locale, "/dashboard/brand")} className="surface-card ring-glow-hover flex items-center gap-4 p-5">
+        <SvgLogo svg={kit?.logo_svg} url={kit?.logo_url} alt={kit?.name ?? workspace.name} className="size-16 shrink-0" />
+        <div className="min-w-0">
+          <p className="text-xs text-ink-subtle">{d.brand.kitTitle}</p>
+          <p className="truncate font-semibold">{kit?.name ?? workspace.name}</p>
+          {kit ? (
+            <div className="mt-1.5 flex gap-1" aria-hidden>{kit.palette?.slice(0, 5).map((c, i) => <span key={i} className="size-3.5 rounded-full border border-line" style={{ backgroundColor: c.hex }} />)}</div>
+          ) : (
+            <p className="mt-1 text-xs text-yellow">{d.brand.noKit} — {d.brand.generate}</p>
+          )}
+        </div>
+      </Link>
+      <Link href={localizedHref(locale, "/dashboard/plan")} className="surface-card ring-glow-hover p-5">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-ink-subtle">{d.plan.usageTitle}</p>
+          <span className="text-xs font-semibold text-blue-300">{d.plan.tiers[usage.tier].name}</span>
+        </div>
+        {[
+          [d.plan.aiGenerations, usage.ai],
+          [d.plan.identityGenerations, usage.identity],
+        ].map(([label, m]) => {
+          const meter = m as { used: number; limit: number };
+          const pct = Math.min(100, Math.round((meter.used / Math.max(1, meter.limit)) * 100));
+          return (
+            <div key={label as string} className="mt-3">
+              <div className="flex justify-between text-xs"><span className="text-ink-muted">{label as string}</span><span className="tabular-nums">{meter.used}/{meter.limit}</span></div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10"><div className={pct >= 100 ? "h-full bg-orange" : "h-full bg-blue"} style={{ width: `${pct}%` }} /></div>
+            </div>
+          );
+        })}
+      </Link>
+      <div className="surface-card p-5">
+        <p className="text-xs text-ink-subtle">{d.ai.hubTitle}</p>
+        <ul className="mt-2 space-y-1">
+          {clientTools.map((tool) => {
+            const Icon = toolIcons[tool.key];
+            return (
+              <li key={tool.key}>
+                <Link href={localizedHref(locale, `/dashboard/ai/${tool.slug}`)} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-white/5">
+                  <Icon className="size-4 text-yellow" aria-hidden />
+                  {dict.aiTools[tool.key].name}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
   );
 }
 

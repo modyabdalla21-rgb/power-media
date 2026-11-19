@@ -6,6 +6,7 @@
  */
 import en from "../src/i18n/dictionaries/en.ts";
 import ar from "../src/i18n/dictionaries/ar.ts";
+import eg from "../src/i18n/dictionaries/eg.ts";
 
 const errors: string[] = [];
 const placeholders = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join(",");
@@ -33,8 +34,32 @@ function walk(a: unknown, b: unknown, path: string) {
 }
 
 walk(en, ar, "dict");
+
+/** Egyptian overrides: every key must exist in English with the same shape. */
+function walkOverride(base: unknown, o: unknown, path: string) {
+  if (typeof o === "string") {
+    if (typeof base !== "string") return void errors.push(`eg ${path}: not a string in en (or unknown key)`);
+    if (!o.trim() && base.trim()) errors.push(`eg ${path}: empty override`);
+    if (placeholders(base) !== placeholders(o)) errors.push(`eg ${path}: placeholders differ`);
+    return;
+  }
+  if (Array.isArray(o)) {
+    if (!Array.isArray(base)) return void errors.push(`eg ${path}: not an array in en`);
+    if (o.length !== base.length) errors.push(`eg ${path}: length ${o.length} vs ${base.length}`);
+    o.forEach((v, i) => walkOverride(base[i], v, `${path}[${i}]`));
+    return;
+  }
+  if (o && typeof o === "object") {
+    if (!base || typeof base !== "object") return void errors.push(`eg ${path}: unknown key`);
+    for (const [k, v] of Object.entries(o)) {
+      if (!(k in (base as object))) errors.push(`eg ${path}.${k}: unknown key (not in en)`);
+      else walkOverride((base as Record<string, unknown>)[k], v, `${path}.${k}`);
+    }
+  }
+}
+walkOverride(en, eg, "dict");
 if (errors.length) {
   console.error(`✗ i18n check failed (${errors.length}):\n` + errors.map((e) => "  " + e).join("\n"));
   process.exit(1);
 }
-console.log("✓ i18n: English and Arabic dictionaries are in full parity.");
+console.log("✓ i18n: English and Arabic dictionaries are in full parity; Egyptian (مصري) overrides are valid.");

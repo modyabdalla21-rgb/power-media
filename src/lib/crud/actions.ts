@@ -70,6 +70,6 @@ export async function deleteRecord(_prev: CrudState, fd: FormData): Promise<Crud
   revalidatePath("/[locale]/dashboard", "layout");
   // Optional post-delete navigation (e.g. from a detail page); same-app paths only.
   const next = String(fd.get("_redirect") ?? "");
-  if (/^\/(en|ar)\/dashboard(\/[\w\-/]*)?$/.test(next)) redirect(next);
+  if (/^\/(en|ar|eg)\/dashboard(\/[\w\-/]*)?$/.test(next)) redirect(next);
   return { ok: true };
 }

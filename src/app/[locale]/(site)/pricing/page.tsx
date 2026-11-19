@@ -23,7 +23,7 @@ function PlanGrid({ plans, pricing, fallback, cta, ctaHref, dict, locale }: {
   dict: Dictionary;
   locale: Locale;
 }) {
-  const fmt = new Intl.NumberFormat(locale === "ar" ? "ar-EG" : "en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  const fmt = new Intl.NumberFormat(locale === "en" ? "en-US" : "ar-EG", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
   return (
     <div className="mt-10 grid gap-4 lg:grid-cols-3">
       {plans.map((plan) => {

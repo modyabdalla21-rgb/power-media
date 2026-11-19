@@ -1,10 +1,20 @@
-export const locales = ["en", "ar"] as const;
+/**
+ * UI locales. `eg` is an Egyptian-colloquial Arabic mode: right-to-left, and
+ * its dictionary is Arabic (MSA) with friendly Egyptian overrides.
+ */
+export const locales = ["en", "ar", "eg"] as const;
 export type Locale = (typeof locales)[number];
 export const defaultLocale: Locale = "en";
 
-export const localeMeta: Record<Locale, { label: string; dir: "ltr" | "rtl"; htmlLang: string; ogLocale: string }> = {
-  en: { label: "English", dir: "ltr", htmlLang: "en", ogLocale: "en_US" },
-  ar: { label: "العربية", dir: "rtl", htmlLang: "ar", ogLocale: "ar_EG" },
+/** Language of stored bilingual content ({ en, ar } objects). */
+export type ContentLocale = "en" | "ar";
+export const contentLocale = (locale: Locale): ContentLocale => (locale === "en" ? "en" : "ar");
+export const isRtl = (locale: Locale) => locale !== "en";
+
+export const localeMeta: Record<Locale, { label: string; short: string; dir: "ltr" | "rtl"; htmlLang: string; ogLocale: string }> = {
+  en: { label: "English", short: "EN", dir: "ltr", htmlLang: "en", ogLocale: "en_US" },
+  ar: { label: "العربية", short: "ع", dir: "rtl", htmlLang: "ar", ogLocale: "ar_SA" },
+  eg: { label: "مصري", short: "مصري", dir: "rtl", htmlLang: "ar-EG", ogLocale: "ar_EG" },
 };
 
 export function isLocale(value: string | undefined | null): value is Locale {

@@ -3,9 +3,9 @@
  * dictionary key and input schema. Used by the UI (forms) and the API
  * (server-side validation). Prompts live in ./prompts.ts (server only).
  */
-import type { Locale } from "@/i18n/config";
+import type { ContentLocale } from "@/i18n/config";
 
-type L = Record<Locale, string>;
+type L = Record<ContentLocale, string>;
 type Opt = { value: string; label: L };
 
 export type ToolField = {
@@ -20,7 +20,7 @@ export type ToolField = {
   wide?: boolean;
 };
 
-export type ToolKey = "adStudio" | "mediaPlanner" | "reportGenerator";
+export type ToolKey = "adStudio" | "mediaPlanner" | "reportGenerator" | "brandIdentity";
 
 export type ToolDefinition = {
   key: ToolKey;
@@ -30,6 +30,12 @@ export type ToolDefinition = {
   languageField: string;
   /** Field used to build the saved generation's title. */
   titleField: string;
+  /** "all": clients can use it in their workspace (counts toward their plan). */
+  access: "staff" | "all";
+  /** Markdown text, or structured brand identity JSON. */
+  output: "markdown" | "identity";
+  /** Which plan quota a client generation consumes. */
+  quota: "ai" | "identity";
 };
 
 export const OUTPUT_LANGUAGES = ["en", "ar_msa", "ar_eg", "ar_gulf"] as const;
@@ -67,6 +73,9 @@ export const aiTools: ToolDefinition[] = [
   {
     key: "adStudio",
     slug: "ad-copy-studio",
+    access: "all",
+    output: "markdown",
+    quota: "ai",
     languageField: "language",
     titleField: "offer",
     fields: [
@@ -117,6 +126,9 @@ export const aiTools: ToolDefinition[] = [
   {
     key: "mediaPlanner",
     slug: "campaign-media-planner",
+    access: "all",
+    output: "markdown",
+    quota: "ai",
     languageField: "language",
     titleField: "offer",
     fields: [
@@ -162,6 +174,9 @@ export const aiTools: ToolDefinition[] = [
   {
     key: "reportGenerator",
     slug: "client-report-generator",
+    access: "staff",
+    output: "markdown",
+    quota: "ai",
     languageField: "language",
     titleField: "client_id",
     fields: [
@@ -182,6 +197,54 @@ export const aiTools: ToolDefinition[] = [
     ],
   },
 ];
+
+aiTools.push({
+  key: "brandIdentity",
+  slug: "brand-identity",
+  access: "all",
+  output: "identity",
+  quota: "identity",
+  languageField: "language",
+  titleField: "brand",
+  fields: [
+    { ...client, required: true, label: { en: "Client", ar: "العميل" } },
+    { name: "brand", type: "text", required: true, max: 120, label: { en: "Brand name", ar: "اسم العلامة" } },
+    { name: "industry", type: "text", required: true, max: 160, label: { en: "Industry / niche", ar: "المجال / التخصص" } },
+    { name: "market", type: "select", required: true, label: { en: "Main market", ar: "السوق الرئيسي" }, options: markets, defaultValue: "egypt" },
+    audience,
+    { name: "personality", type: "text", max: 200, label: { en: "Brand personality / tone", ar: "شخصية العلامة / النبرة" }, placeholder: { en: "e.g. warm, witty, premium", ar: "مثال: دافئة، ذكية، فاخرة" } },
+    {
+      name: "style",
+      type: "select",
+      required: true,
+      label: { en: "Visual style", ar: "الأسلوب البصري" },
+      defaultValue: "modern_minimal",
+      options: [
+        { value: "modern_minimal", label: { en: "Modern & minimal", ar: "عصري وبسيط" } },
+        { value: "bold_energetic", label: { en: "Bold & energetic", ar: "جريء وحيوي" } },
+        { value: "luxury_elegant", label: { en: "Luxury & elegant", ar: "فاخر وأنيق" } },
+        { value: "playful_friendly", label: { en: "Playful & friendly", ar: "مرح وودود" } },
+        { value: "heritage_arabic", label: { en: "Heritage / Arabic calligraphic", ar: "تراثي / خط عربي" } },
+        { value: "tech_futuristic", label: { en: "Tech & futuristic", ar: "تقني ومستقبلي" } },
+      ],
+    },
+    { name: "colors", type: "text", max: 200, label: { en: "Color preferences (optional)", ar: "تفضيلات الألوان (اختياري)" }, placeholder: { en: "e.g. earthy tones, no pink", ar: "مثال: ألوان ترابية، بدون وردي" } },
+    { name: "avoid", type: "text", max: 200, label: { en: "Anything to avoid (optional)", ar: "أشياء تريد تجنّبها (اختياري)" } },
+    {
+      name: "language",
+      type: "select",
+      required: true,
+      label: { en: "Language of the identity text", ar: "لغة نصوص الهوية" },
+      defaultValue: "en",
+      options: [
+        { value: "en", label: { en: "English", ar: "الإنجليزية" } },
+        { value: "ar_msa", label: { en: "Arabic (Modern Standard)", ar: "العربية (الفصحى)" } },
+        { value: "ar_eg", label: { en: "Arabic — Egyptian", ar: "العربية — المصرية" } },
+        { value: "ar_gulf", label: { en: "Arabic — Gulf / Saudi", ar: "العربية — الخليجية" } },
+      ],
+    },
+  ],
+});
 
 export const getToolBySlug = (slug: string) => aiTools.find((t) => t.slug === slug);
 export const getToolByKey = (key: string) => aiTools.find((t) => t.key === key);
