@@ -8,9 +8,14 @@ import { enumLabel, outputDialect } from "./polish";
  */
 
 const CATEGORIES = ["content", "video", "ads", "social", "brand", "website", "research", "other"] as const;
-const TOOLS = ["adStudio", "mediaPlanner", "brandIdentity", "growthPlan"] as const;
+const TOOLS = ["adStudio", "mediaPlanner", "brandIdentity", "growthPlan", "staticPost", "metaAds", "marketingStrategy", "offerAngles"] as const;
 export type TaskCategory = (typeof CATEGORIES)[number];
 export type TaskTool = (typeof TOOLS)[number];
+
+/** Tool hints accepted before migration 0007 (used as a fallback on a check-constraint error). */
+const LEGACY_HINTS: Record<string, string | null> = { staticPost: "adStudio", metaAds: "mediaPlanner", marketingStrategy: "growthPlan", offerAngles: "adStudio" };
+export const legacyTaskRows = <T extends { tool_hint: string | null }>(rows: T[]): T[] =>
+  rows.map((r) => (r.tool_hint && r.tool_hint in LEGACY_HINTS ? { ...r, tool_hint: LEGACY_HINTS[r.tool_hint] } : r));
 
 const str = (max: number) => z.string().trim().min(1).transform((s) => s.slice(0, max));
 // `.optional()` first: in Zod v4 a missing key only passes if the schema is optional.

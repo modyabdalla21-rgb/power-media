@@ -48,7 +48,8 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
     Promise.all(others.map((k) => resolveKitLogo(supabase, k))),
     listBrandAssets(supabase, workspace.id),
   ]);
-  const references = assets.filter((a) => a.kind === "reference");
+  // Product photos feed the Static Post Studio (optional — not part of readiness).
+  const products = assets.filter((a) => a.kind === "product");
   const identityHref = localizedHref(locale, "/dashboard/ai/brand-identity");
   const h = d.hub;
   const opts = d.options as Record<string, string>;
@@ -77,6 +78,10 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
     adStudio: localizedHref(locale, "/dashboard/ai/ad-copy-studio"),
     mediaPlanner: localizedHref(locale, "/dashboard/ai/campaign-media-planner"),
     brandIdentity: localizedHref(locale, "/dashboard/ai/brand-identity"),
+    staticPost: localizedHref(locale, "/dashboard/ai/static-post-studio"),
+    metaAds: localizedHref(locale, "/dashboard/ai/meta-ads-strategy"),
+    marketingStrategy: localizedHref(locale, "/dashboard/ai/marketing-strategy"),
+    offerAngles: localizedHref(locale, "/dashboard/ai/offer-angles"),
     growthPlan: "#plans",
   };
   const dateFmt = Object.fromEntries(tasks.filter((t) => t.due_date).map((t) => [t.due_date!, formatDate(t.due_date, locale)]));
@@ -87,7 +92,6 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
     { key: "profile", ok: !!(workspace.industry && workspace.audience && workspace.tone), href: "#profile" },
     { key: "identity", ok: !!active, href: identityHref },
     { key: "logo", ok: hasLogo, href: "#identity" },
-    { key: "references", ok: references.length > 0, href: "#identity" },
     { key: "analysis", ok: !!analysis, href: localizedHref(locale, "/dashboard/growth") },
     { key: "plan", ok: plans.length > 0, href: "#plans" },
     { key: "task", ok: tasks.some((t) => t.status === "done"), href: "#tasks" },
@@ -310,15 +314,18 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
             <Link href={identityHref} className="inline-flex min-h-10 items-center text-xs text-blue-300 hover:text-white">{b.generateInstead} →</Link>
           </div>
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold">{b.referencesTitle}</h3>
-            <AssetUploader clientId={workspace.id} kind="reference" t={b} />
-            {references.length ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">{b.productsTitle}</h3>
+              <Link href={localizedHref(locale, "/dashboard/ai/static-post-studio")} className="inline-flex min-h-10 items-center text-xs text-blue-300 hover:text-white">{dict.dashboard.nav.postTool} →</Link>
+            </div>
+            <AssetUploader clientId={workspace.id} kind="product" t={b} />
+            {products.length ? (
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {references.map((a) => (
+                {products.map((a) => (
                   <li key={a.id} className="group relative overflow-hidden rounded-xl border border-line">
                     {a.url ? (
                       // eslint-disable-next-line @next/next/no-img-element -- signed URL from private storage
-                      <img src={a.url} alt={a.caption ?? a.file_name ?? ""} className="aspect-square w-full bg-white object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                      <img src={a.url} alt={a.caption ?? a.file_name ?? ""} className="aspect-square w-full bg-white object-contain" loading="lazy" referrerPolicy="no-referrer" />
                     ) : (
                       <div className="aspect-square w-full bg-white/5" />
                     )}
@@ -328,7 +335,7 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-ink-subtle">{b.noReferences}</p>
+              <p className="text-xs text-ink-subtle">{b.noProducts}</p>
             )}
           </div>
         </div>

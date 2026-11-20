@@ -55,11 +55,11 @@ async function detectColors(file: File): Promise<string[]> {
 
 type Props = {
   clientId: string;
-  kind: "logo" | "reference";
+  kind: "logo" | "product";
   t: B;
   kitName?: string;
   /** Called after a successful upload (e.g. onboarding stores the asset id / colors). */
-  onUploaded?: (asset: { id: string; colors: string[] }) => void;
+  onUploaded?: (asset: { id: string; colors: string[]; previewUrl: string }) => void;
   /** Show "use these colors" for logos (brand page). */
   offerColors?: boolean;
   compact?: boolean;
@@ -91,8 +91,8 @@ export function AssetUploader({ clientId, kind, t, kitName, onUploaded, offerCol
       const detected = kind === "logo" ? await detectColors(file) : [];
       setColors(detected);
       setCaption("");
-      setStatus({ ok: kind === "logo" ? t.logoUploaded : t.referenceUploaded });
-      onUploaded?.({ id: res.id, colors: detected });
+      setStatus({ ok: kind === "logo" ? t.logoUploaded : t.productUploaded });
+      onUploaded?.({ id: res.id, colors: detected, previewUrl: URL.createObjectURL(file) });
       startTransition(() => router.refresh());
     } catch (err) {
       console.error("[upload]", err);
@@ -105,7 +105,7 @@ export function AssetUploader({ clientId, kind, t, kitName, onUploaded, offerCol
 
   return (
     <div className="space-y-3">
-      {kind === "reference" && !compact && (
+      {kind === "product" && !compact && (
         <Input value={caption} onChange={(e) => setCaption(e.target.value)} maxLength={300} placeholder={t.captionPlaceholder} aria-label={t.captionPlaceholder} />
       )}
       <div className="flex flex-wrap items-center gap-3">
@@ -123,7 +123,7 @@ export function AssetUploader({ clientId, kind, t, kitName, onUploaded, offerCol
           className={`inline-flex h-11 cursor-pointer items-center gap-2 rounded-(--radius-control) border border-line-strong bg-white/[0.03] px-4 text-sm font-semibold transition-colors hover:border-blue/50 hover:bg-blue/10 ${busy ? "pointer-events-none opacity-60" : ""}`}
         >
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Upload className="size-4" aria-hidden />}
-          {busy ? t.uploading : kind === "logo" ? t.uploadLogo : t.uploadReference}
+          {busy ? t.uploading : kind === "logo" ? t.uploadLogo : t.uploadProduct}
         </label>
         <span className="text-xs text-ink-subtle">{t.uploadHint}</span>
       </div>

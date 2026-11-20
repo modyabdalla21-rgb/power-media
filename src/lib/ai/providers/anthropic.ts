@@ -17,7 +17,12 @@ export function createAnthropicProvider(apiKey: string, models: string[]): AiPro
             max_tokens: p.maxOutputTokens,
             temperature: p.temperature,
             system: p.system,
-            messages: [{ role: "user", content: p.prompt }],
+            messages: [{
+              role: "user",
+              content: p.images?.length
+                ? [...p.images.map((i) => ({ type: "image", source: { type: "base64", media_type: i.mimeType, data: i.data } })), { type: "text", text: p.prompt }]
+                : p.prompt,
+            }],
           }),
           signal: p.signal,
           cache: "no-store",

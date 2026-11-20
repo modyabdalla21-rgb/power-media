@@ -107,7 +107,7 @@ const OBJECTIVES: Record<string, string> = {
 const MARKETS: Record<string, string> = { egypt: "Egypt", ksa: "Saudi Arabia", uae: "UAE", gcc: "GCC (multi-market)" };
 const DURATIONS: Record<string, string> = { "2w": "2 weeks", "1m": "1 month", "3m": "3 months" };
 
-export type PromptSpec = { system: string; prompt: string; temperature: number; maxOutputTokens: number; json?: boolean };
+export type PromptSpec = { system: string; prompt: string; temperature: number; maxOutputTokens: number; json?: boolean; images?: { mimeType: string; data: string }[] };
 
 const line = (label: string, value?: string) => (value && value.trim() ? `- ${label}: ${value.trim()}` : null);
 const block = (lines: (string | null)[]) => lines.filter(Boolean).join("\n");
@@ -169,7 +169,8 @@ Consider local context: Snapchat's strength in KSA, WhatsApp-led conversion in E
 
   const STEP_RULES = `Each task must be concrete and doable by a small business owner without an agency: one clear action with a visible output (e.g. "Film a 20-second reel showing the morning coffee ritual", not "improve social media").
 Categories: content | video | ads | social | brand | website | research | other.
-"tool" says which POWER AI tool helps execute it: "adStudio" (ad copy, posts, video scripts), "mediaPlanner" (campaign structure & budget), "brandIdentity" (logo/identity), "growthPlan" (a deeper plan) or null.
+"tool" says which POWER AI tool helps execute it: "staticPost" (designed static post from a product photo), "adStudio" (reels scripts, content calendar, ad copy), "metaAds" (Meta ads strategy, audiences, creative tests), "marketingStrategy" (positioning, funnel & channel strategy), "offerAngles" (offers vs competitors), "mediaPlanner" (multi-platform budget split), "brandIdentity" (logo/identity), "growthPlan" (a deeper plan) or null.
+Never ask the owner to upload reference / inspiration / mood images — that is not a requirement.
 Respect the brand's market, dialect and budget reality (Egypt/GCC). Don't invent results or numbers.`;
 
   if (tool.key === "offerAngles") {
@@ -199,6 +200,119 @@ Structure:
       ])}${contextBlock}`,
       temperature: 0.8,
       maxOutputTokens: 6000,
+    };
+  }
+
+  if (tool.key === "marketingStrategy") {
+    const H: Record<string, string> = { "1m": "1 month", "3m": "3 months", "6m": "6 months" };
+    return {
+      system: `You are a senior marketing strategist at POWER MEDIA building a practical marketing strategy for a small or growing brand in Egypt or the GCC that runs its own marketing.
+${COMMON_RULES}
+- Build everything on the brand profile & active brand kit in the records (positioning, audience, tone, colors, voice). Quote the brand's tagline/positioning when useful; don't invent a new identity.
+- Be specific to THIS brand and budget. A small budget means organic-first + WhatsApp conversion + one focused paid test; never recommend channels the owner can't run.
+
+${languageRule}
+
+Structure:
+## Strategic summary — the core strategy in 3–4 bullets (where to play, how to win, what to ignore for now).
+## Positioning — target segment, the problem we solve, value proposition, a one-sentence positioning statement, and 3 message pillars.
+## Funnel plan — Markdown table: Stage | Goal | Channels | Content / offer | KPI. Stages: Awareness, Consideration, Conversion, Retention & referrals.
+## Channel strategy — Markdown table: Channel | Role | Priority | Weekly effort | Budget share. Then 1 line on what NOT to do yet.
+## Roadmap — Markdown table: Phase | Weeks | Focus | Key actions | Success signal (3–4 phases within the horizon).
+## KPIs to track — 4–6 KPIs with how to measure them simply (Meta insights, WhatsApp labels, a sheet). Targets only as planning assumptions.
+## Quick wins this week — 3–5 concrete actions.
+## Risks & assumptions — 3 bullets.${glossary(["Strategic summary", "Positioning", "Funnel plan", "Stage", "Goal", "Channels", "Content / offer", "KPI", "Channel strategy", "Channel", "Role", "Priority", "Weekly effort", "Budget share", "Roadmap", "Phase", "Weeks", "Focus", "Key actions", "Success signal", "KPIs to track", "Quick wins this week", "Risks & assumptions"])}`,
+      prompt: `Build the marketing strategy:\n${block([
+        line("Main goal", inputs.goal),
+        line("Product / service focus", inputs.offer),
+        line("Biggest challenge", inputs.challenge),
+        line("Target audience", inputs.audience),
+        line("Channels in use", inputs.channels),
+        line("Monthly marketing budget", inputs.budget ? `${inputs.budget} ${inputs.currency ?? ""}` : "not specified (assume a small budget)"),
+        line("Horizon", H[inputs.horizon] ?? inputs.horizon),
+        line("Market", MARKETS[inputs.market] ?? inputs.market),
+      ])}${contextBlock}`,
+      temperature: 0.55,
+      maxOutputTokens: 6000,
+    };
+  }
+
+  if (tool.key === "metaAds") {
+    const STAGES: Record<string, string> = { new: "new to ads — no account history", running: "ads running with weak results", scaling: "ads working — wants to scale" };
+    const DEST: Record<string, string> = { whatsapp: "click-to-WhatsApp", instagram: "Instagram Direct messages", website: "website / online store", lead_form: "Meta instant form" };
+    return {
+      system: `You are a senior Meta (Facebook & Instagram) ads strategist and direct-response copywriter at POWER MEDIA, specialised in Egypt and GCC e-commerce and service brands.
+${COMMON_RULES}
+- Follow current Meta best practice: simple account structure, broad / Advantage+ audiences with strong creative, CBO/ABO only where it helps testing, Conversions API, and creative as the main targeting lever. Never promise results; label benchmarks as assumptions.
+- Respect Meta ad policies (no personal-attribute language like "Are you overweight?", no misleading claims, no before/after health claims).
+- Copy must match the brand's tone and kit from the records.
+
+${languageRule}
+
+Structure:
+## Strategy summary — 3–4 bullets: objective & optimisation event, structure, budget logic, first 14 days.
+## Campaign structure — Markdown table: Campaign | Objective | Budget / day | Ad sets | Optimisation | Placements. Daily budgets MUST fit the monthly budget given (show the maths in one line).
+## Audiences — Markdown table: Audience | Definition | Why | Funnel stage (include broad, interest stack, engagers/retargeting, lookalike when data allows).
+## Creative angles — 5 angles: **Name**, the idea, the visual / first frame, and which audience it suits.
+## Creative testing plan — Markdown table: Test | Variants | Budget | Duration | Winner rule. Then the kill / keep / scale rules in 3 bullets.
+## Ad copy — 3 ready ads, each with **Primary text**, **Headline**, **Description**, **CTA button**.
+## Hooks — 10 scroll-stopping first lines in the requested dialect.
+## Optimisation & scaling — rules by metric (CPM, CTR, cost per result, frequency) with what to do.
+## Tracking setup — short checklist: Pixel, Conversions API, events, UTM / WhatsApp tracking as relevant.${glossary(["Strategy summary", "Campaign structure", "Campaign", "Objective", "Budget / day", "Ad sets", "Optimisation", "Placements", "Audiences", "Audience", "Definition", "Why", "Funnel stage", "Creative angles", "Name", "Creative testing plan", "Test", "Variants", "Budget", "Duration", "Winner rule", "Ad copy", "Primary text", "Headline", "Description", "CTA button", "Hooks", "Optimisation & scaling", "Tracking setup"])}`,
+      prompt: `Build the Meta ads strategy:\n${block([
+        line("Product / offer", inputs.offer),
+        line("Campaign goal", OBJECTIVES[inputs.objective] ?? inputs.objective),
+        line("Monthly ad budget", inputs.budget ? `${inputs.budget} ${inputs.currency ?? ""}` : "not specified (propose a lean test budget)"),
+        line("Current state", STAGES[inputs.stage] ?? inputs.stage),
+        line("Conversion destination", DEST[inputs.destination] ?? inputs.destination),
+        line("Target audience", inputs.audience),
+        line("Past results", inputs.performance),
+        line("Market", MARKETS[inputs.market] ?? inputs.market),
+      ])}${contextBlock}`,
+      temperature: 0.7,
+      maxOutputTokens: 7000,
+    };
+  }
+
+  if (tool.key === "staticPost") {
+    const GOALS: Record<string, string> = { sell: "sell / promote an offer", launch: "launch a new product", awareness: "brand awareness", engage: "engagement (comments, saves, shares)" };
+    const FORMATS: Record<string, string> = { square: "1:1 feed post", portrait: "4:5 feed post", story: "9:16 story" };
+    return {
+      system: `You are an art director and senior social copywriter at POWER MEDIA designing STATIC social media posts (Instagram / Facebook) for brands in Egypt and the GCC.
+${COMMON_RULES.replace("Output clean Markdown only", "Output JSON only (no Markdown)")}
+- If a product photo is attached, look at it: name what is really visible (product type, color, packaging) and write copy that fits it. Never claim features you cannot see or were not told.
+- On-image text must be SHORT and punchy (it is read in 1 second on a phone). Use the brand's tone & voice from the brand kit.
+
+${languageRule} (Applies to all human-readable values; keep enum values in English.)
+
+Return ONE JSON object:
+{
+  "posts": [ exactly 3 distinct post designs, each {
+    "concept": string (the idea in one short line),
+    "headline": string (on-image headline, max 6 words),
+    "subheadline": string (on-image supporting line, max 12 words),
+    "badge": string (short sticker text like an offer "-20%" / "جديد" / price, or "" if none — only from facts given),
+    "cta": string (button text, max 4 words),
+    "layout": "spotlight" | "split" | "bold",
+    "theme": "brand" | "dark" | "light",
+    "caption": string (ready-to-post caption with line breaks, 1–3 emojis where natural, ending with the CTA),
+    "hashtags": string[] (5–8)
+  } ],
+  "photo_tips": string[] (2–4 tips to shoot or improve the product photo for this post)
+}
+Layouts: "spotlight" = product centred with headline above; "split" = text block on one side, product on the other; "bold" = big typographic headline with the product smaller. Use a different layout for each post.`,
+      prompt: `Design static posts.\n${block([
+        line("Product / service", inputs.product),
+        line("Offer / price", inputs.offer),
+        line("Key message", inputs.message),
+        line("Post goal", GOALS[inputs.goal] ?? inputs.goal),
+        line("Format", FORMATS[inputs.format] ?? inputs.format),
+        line("Call to action", inputs.cta),
+        inputs.image ? "- A product photo is attached." : "- No product photo was provided.",
+      ])}${contextBlock}`,
+      temperature: 0.85,
+      maxOutputTokens: 3500,
+      json: true,
     };
   }
 

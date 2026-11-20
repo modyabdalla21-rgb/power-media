@@ -9,7 +9,7 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 const assetInput = z.object({
   path: z.string().max(300),
-  kind: z.enum(["logo", "reference"]),
+  kind: z.enum(["logo", "product"]),
   fileName: z.string().trim().max(200).optional().default(""),
   mime: z.enum(MIME),
   size: z.number().int().min(1).max(5 * 1024 * 1024),

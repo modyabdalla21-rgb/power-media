@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { BrandAnalysis } from "@/lib/ai/structured";
+import { legacyTaskRows, type BrandAnalysis } from "@/lib/ai/structured";
 import { getClientWorkspace } from "@/lib/client/workspace";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -76,7 +76,8 @@ export async function addStepsAsTasks(generationId: string, indices: number[]): 
       sort_order: i,
     }));
   if (!rows.length) return { ok: true, count: 0 };
-  const { error } = await c.supabase.from("brand_tasks").insert(rows);
+  let { error } = await c.supabase.from("brand_tasks").insert(rows);
+  if (error?.code === "23514") ({ error } = await c.supabase.from("brand_tasks").insert(legacyTaskRows(rows)));
   return done(error ? { ok: false, error: "dbError" } : { ok: true, count: rows.length });
 }
 

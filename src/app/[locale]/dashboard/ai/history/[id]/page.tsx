@@ -4,6 +4,8 @@ import { ArrowLeft, Eye, Lock } from "lucide-react";
 import { CopyButton } from "@/components/ai/copy-button";
 import { Markdown } from "@/components/ai/markdown";
 import { polishOutput } from "@/lib/ai/polish";
+import { StaticPostStudio, type PostLogo, type StaticPostData } from "@/components/ai/static-post-studio";
+import { BRAND_BUCKET, getActiveBrandKit, resolveKitLogo } from "@/lib/client/workspace";
 import { IdentityConceptsView } from "@/components/brand/identity-view";
 import type { BrandIdentity } from "@/lib/ai/identity";
 import { clientFields } from "@/components/dashboard/crud/module-view";
@@ -61,10 +63,24 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
   const libraryHref = localizedHref(locale, "/dashboard/ai/history");
   const dir = g.language && isArabicOutput(g.language) ? "rtl" : "ltr";
 
+  // Static posts: re-sign the product photo and the brand's current logo for the composer.
+  const raw = g.data as unknown as Partial<StaticPostData> | null;
+  const postData = g.tool === "staticPost" && Array.isArray(raw?.posts) && raw?.brand ? (raw as StaticPostData) : null;
+  let postImage: string | null = null;
+  let postLogo: PostLogo = null;
+  if (postData && g.client_id) {
+    const [image, kit] = await Promise.all([
+      postData.brand.imageId ? supabase.from("brand_assets").select("storage_path").eq("id", postData.brand.imageId).maybeSingle() : Promise.resolve({ data: null }),
+      getActiveBrandKit(supabase, g.client_id),
+    ]);
+    if (image.data) postImage = (await supabase.storage.from(BRAND_BUCKET).createSignedUrl(image.data.storage_path, 3600)).data?.signedUrl ?? null;
+    postLogo = await resolveKitLogo(supabase, kit);
+  }
+
   // Readable brief (staff only): label each input using the tool schema.
   const brief = isStaff && tool && g.inputs
     ? tool.fields
-        .filter((f) => g.inputs?.[f.name] && f.type !== "client" && f.type !== "project")
+        .filter((f) => g.inputs?.[f.name] && f.type !== "client" && f.type !== "project" && f.type !== "image")
         .map((f) => ({ label: f.label[contentLocale(locale)], value: f.options?.find((o) => o.value === g.inputs?.[f.name])?.label[contentLocale(locale)] ?? g.inputs![f.name] }))
     : [];
 
@@ -96,7 +112,9 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
         <article className="surface-card p-6 sm:p-8 xl:col-span-3">
           {!isStaff && <p className="mb-6 text-xs text-ink-subtle">{d.clientView}</p>}
           {g.truncated && <p className="mb-4 text-xs text-yellow">{t.truncated}</p>}
-          {g.tool === "brandIdentity" && g.data?.concepts ? (
+          {g.tool === "staticPost" && postData ? (
+            <StaticPostStudio data={postData} imageUrl={postImage} logo={postLogo} t={dict.dashboard.post} dir={dir} />
+          ) : g.tool === "brandIdentity" && g.data?.concepts ? (
             <IdentityConceptsView identity={g.data} d={dict.dashboard} generationId={g.id} canApply={canApply} brandHref={profile.role === "client" ? localizedHref(locale, "/dashboard/brand") : undefined} dir={dir} />
           ) : (
             <Markdown text={polishOutput(g.output ?? "", g.language)} dir={dir} />

@@ -4,15 +4,16 @@ import { loadContext } from "@/lib/ai/context";
 import { polishData, polishOutput } from "@/lib/ai/polish";
 import { loadBrandState } from "@/lib/ai/brand-state";
 import { identityToMarkdown, parseIdentity } from "@/lib/ai/identity";
-import { analysisToMarkdown, diagnosisToMarkdown, parseAnalysis, parseDiagnosis, parsePlan, planToMarkdown, type GrowthDiagnosis, type GrowthPlan } from "@/lib/ai/structured";
+import { analysisToMarkdown, diagnosisToMarkdown, legacyTaskRows, parseAnalysis, parseDiagnosis, parsePlan, planToMarkdown, type GrowthDiagnosis, type GrowthPlan } from "@/lib/ai/structured";
 import { discoverySchema, discoveryToText } from "@/lib/client/discovery";
 import { buildPrompt } from "@/lib/ai/prompts";
 import { GENERATION_DEADLINE_MS, generateText } from "@/lib/ai/provider";
 import { getToolBySlug, type ToolDefinition } from "@/lib/ai/tools";
+import { kitColors, parseStaticPost, POST_FORMATS, staticPostToMarkdown, type PostBrand, type PostFormat } from "@/lib/ai/post";
 import { AiError } from "@/lib/ai/types";
 import { isDashboardPreview } from "@/lib/env";
 import { serverEnv } from "@/lib/env.server";
-import { brandContextText, getActiveBrandKit, getClientWorkspace, getUsage } from "@/lib/client/workspace";
+import { BRAND_BUCKET, brandContextText, getActiveBrandKit, getClientWorkspace, getUsage } from "@/lib/client/workspace";
 import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/server";
 
 // Allow up to 60s on Vercel (Hobby without Fluid compute defaults to 10s).
@@ -22,6 +23,8 @@ export const maxDuration = 60;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** Image types the AI models accept as input. */
+const VISION_MIME = ["image/png", "image/jpeg", "image/webp"];
 
 const bodySchema = z.object({ inputs: z.record(z.string(), z.string().max(6000)) });
 
@@ -39,7 +42,7 @@ function validate(tool: ToolDefinition, raw: Record<string, string>) {
     }
     const ok =
       f.type === "select" ? !!f.options?.some((o) => o.value === v)
-      : f.type === "client" || f.type === "project" ? UUID.test(v)
+      : f.type === "client" || f.type === "project" || f.type === "image" ? UUID.test(v)
       : f.type === "date" ? DATE.test(v) && !Number.isNaN(Date.parse(v))
       : f.type === "number" ? Number.isFinite(Number(v)) && Number(v) > 0 && Number(v) < 1e12
       : v.length <= (f.max ?? (f.type === "textarea" ? 4000 : 300));
@@ -125,6 +128,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
   // ── Brand profile + active brand kit keep every output on-brand.
   let brandContext = "";
   let brandKitName: string | null = null;
+  let brandName = "";
+  let brandColors: string[] = kitColors(null);
   if (supabase && values.client_id) {
     const [{ data: brand }, kit, { data: assets }] = await Promise.all([
       supabase.from("clients").select(BRAND_COLUMNS).eq("id", values.client_id).maybeSingle(),
@@ -143,11 +148,25 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       brandContext = `${discoveryToText(parsedDisc.data)}\n\n${brandContext}`;
     }
     brandKitName = kit?.name ?? null;
+    brandName = kit?.name ?? brand?.name ?? "";
+    brandColors = kitColors(kit?.palette);
+  }
+
+  // ── Static posts: the product photo must belong to this brand; the AI gets to see it.
+  let images: { mimeType: string; data: string }[] | undefined;
+  if (tool.output === "post" && values.image) {
+    if (!supabase || !values.client_id) return json({ code: "invalidInput", fields: { image: "invalid" } }, 422);
+    const { data: asset } = await supabase.from("brand_assets").select("storage_path, mime_type").eq("id", values.image).eq("client_id", values.client_id).maybeSingle();
+    if (!asset) return json({ code: "invalidInput", fields: { image: "invalid" } }, 422);
+    if (VISION_MIME.includes(asset.mime_type)) {
+      const { data: file } = await supabase.storage.from(BRAND_BUCKET).download(asset.storage_path);
+      if (file && file.size <= 4 * 1024 * 1024) images = [{ mimeType: asset.mime_type, data: Buffer.from(await file.arrayBuffer()).toString("base64") }];
+    }
   }
   const context = [brandContext, ctxData.text].filter(Boolean).join("\n\n");
 
   try {
-    const spec = buildPrompt(tool, values, context);
+    const spec = { ...buildPrompt(tool, values, context), images };
     const started = Date.now();
     let result = await generateText(spec);
 
@@ -159,6 +178,11 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       analysis: (t: string) => { const v = polished(parseAnalysis(t)); return v && { data: v, md: analysisToMarkdown(v, outLang) }; },
       plan: (t: string) => { const v = polished(parsePlan(t)); return v && { data: v, md: planToMarkdown(v, outLang) }; },
       diagnosis: (t: string) => { const v = polished(parseDiagnosis(t)); return v && { data: v, md: diagnosisToMarkdown(v, outLang) }; },
+      post: (t: string) => {
+        const v = polished(parseStaticPost(t));
+        const brand: PostBrand = { name: brandName, colors: brandColors, format: (POST_FORMATS as readonly string[]).includes(values.format) ? (values.format as PostFormat) : "square", imageId: values.image ?? null };
+        return v && { data: { ...v, brand }, md: staticPostToMarkdown(v) };
+      },
     } as const;
     let structured: { data: unknown; md: string } | null = null;
     if (tool.output !== "markdown") {
@@ -230,6 +254,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       language: values[tool.languageField] ?? "en",
       brandKit: brandKitName,
       analysis: tool.output === "analysis" || tool.output === "diagnosis" ? structured?.data : undefined,
+      post: tool.output === "post" ? structured?.data : undefined,
       planId,
     });
   } catch (err) {
@@ -265,8 +290,7 @@ async function createPlanWithTasks(
     return null;
   }
   const today = Date.now();
-  const { error: taskError } = await supabase.from("brand_tasks").insert(
-    plan.tasks.map((t, i) => ({
+  const taskRows = plan.tasks.map((t, i) => ({
       client_id: clientId,
       plan_id: row.id,
       title: t.title,
@@ -277,8 +301,10 @@ async function createPlanWithTasks(
       tool_hint: t.tool,
       source: "ai",
       sort_order: i,
-    })),
-  );
+  }));
+  let { error: taskError } = await supabase.from("brand_tasks").insert(taskRows);
+  // Database not yet migrated (0007): fall back to the older tool hints.
+  if (taskError?.code === "23514") ({ error: taskError } = await supabase.from("brand_tasks").insert(legacyTaskRows(taskRows)));
   if (taskError) console.error("[ai] plan tasks save failed", taskError.code, taskError.message);
   return row.id as string;
 }

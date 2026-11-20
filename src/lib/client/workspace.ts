@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPlanTier, planLimits, type PlanTier } from "@/config/plans";
+import { aiTools } from "@/lib/ai/tools";
 import { createSupabaseServerClient, getCurrentProfile } from "@/lib/supabase/server";
 
 export type Workspace = {
@@ -40,7 +41,7 @@ export type BrandKit = {
 
 export type BrandAsset = {
   id: string;
-  kind: "logo" | "reference";
+  kind: "logo" | "reference" | "product";
   storage_path: string;
   file_name: string | null;
   mime_type: string;
@@ -115,7 +116,7 @@ export type Usage = { tier: PlanTier; ai: { used: number; limit: number }; ident
 export async function getUsage(supabase: SupabaseClient, userId: string, workspace: Workspace): Promise<Usage> {
   const since = monthStartIso();
   const base = () => supabase.from("ai_generations").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("client_id", workspace.id).gte("created_at", since);
-  const [ai, identity] = await Promise.all([base().in("tool", ["adStudio", "mediaPlanner"]), base().eq("tool", "brandIdentity")]);
+  const [ai, identity] = await Promise.all([base().in("tool", aiTools.filter((t) => t.quota === "ai" && !t.hub).map((t) => t.key)), base().eq("tool", "brandIdentity")]);
   const limits = planLimits[workspace.plan_tier];
   return {
     tier: workspace.plan_tier,
@@ -153,8 +154,8 @@ export function brandContextText(
     if (kit.voice?.dont?.length) lines.push(`Voice — avoid: ${kit.voice.dont.join("; ")}`);
     if (kit.logo_asset_id) lines.push("Logo: the client's own uploaded logo (keep creative directions compatible with it)");
   }
-  const refs = assets.filter((a) => a.kind === "reference" && (a.caption || a.file_name)).slice(0, 8);
-  if (refs.length) lines.push(`Visual references from the client: ${refs.map((a) => a.caption || a.file_name).join("; ")}`);
+  const products = assets.filter((a) => a.kind === "product" && a.caption).slice(0, 8);
+  if (products.length) lines.push(`Product photos uploaded: ${products.map((a) => a.caption).join("; ")}`);
   return lines.length ? `Brand profile & identity (stay consistent with this):\n${lines.map((l) => `- ${l}`).join("\n")}` : "";
 }
 

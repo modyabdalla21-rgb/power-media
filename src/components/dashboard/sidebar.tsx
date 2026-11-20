@@ -13,10 +13,10 @@ import type { Dictionary } from "@/i18n/dictionaries/en";
 import { aiTools } from "@/lib/ai/tools";
 import { cn } from "@/lib/utils";
 
-type Props = { locale: Locale; t: Dictionary["dashboard"]; tools: Dictionary["aiTools"]; role?: Role; agencyWork?: boolean };
+type Props = { locale: Locale; t: Dictionary["dashboard"]; tools: Dictionary["aiTools"]; role?: Role };
 type NavProps = Props & { onNavigate?: () => void };
 
-function NavContent({ locale, t, tools, role, agencyWork, onNavigate }: NavProps) {
+function NavContent({ locale, t, tools, role, onNavigate }: NavProps) {
   const pathname = usePathname() ?? "";
   const isActive = (href: string) => {
     // In-page anchors (e.g. Brand hub sections) never mark a route active.
@@ -36,7 +36,7 @@ function NavContent({ locale, t, tools, role, agencyWork, onNavigate }: NavProps
 
   return (
     <nav aria-label={t.title} className="flex flex-col gap-6">
-      {navForRole(role, { agencyWork }).map((group) => (
+      {navForRole(role).map((group) => (
         <div key={group.group}>
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">{t.groups[group.group]}</p>
           <ul className="space-y-0.5">

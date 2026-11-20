@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AlertCircle, Check, CheckCircle2, Copy, ExternalLink, Info, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { Markdown } from "@/components/ai/markdown";
+import { ProductImageField, type ProductImage } from "@/components/ai/product-image-field";
+import { StaticPostStudio, type PostLogo, type StaticPostData } from "@/components/ai/static-post-studio";
 import { IdentityConceptsView } from "@/components/brand/identity-view";
 import { UpgradeModal, type LimitInfo } from "@/components/client/upgrade-modal";
 import type { BrandIdentity } from "@/lib/ai/identity";
@@ -13,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 export type ClientToolField = {
   name: string;
-  type: "text" | "textarea" | "select" | "number" | "date" | "client" | "project";
+  type: "text" | "textarea" | "select" | "number" | "date" | "client" | "project" | "image";
   required: boolean;
   label: string;
   placeholder?: string;
@@ -28,7 +30,7 @@ type ErrorCode = keyof T["errors"];
 type State =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "done"; text: string; id: string | null; truncated: boolean; language: string; identity: BrandIdentity | null }
+  | { kind: "done"; text: string; id: string | null; truncated: boolean; language: string; identity: BrandIdentity | null; post: StaticPostData | null; imageUrl: string | null }
   | { kind: "error"; code: ErrorCode; retryAfter?: number };
 
 /**
@@ -36,7 +38,7 @@ type State =
  * output. The server validates, generates, saves to the AI library and
  * returns only normalised error codes.
  */
-export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, mode = "markdown", brandNote, brandHref, canApply }: {
+export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, mode = "markdown", brandNote, brandHref, canApply, postKit }: {
   slug: string;
   fields: ClientToolField[];
   t: T;
@@ -44,11 +46,13 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
   libraryHref: string;
   languageField: string;
   /** "identity": structured brand identity with apply-as-brand-kit actions. */
-  mode?: "markdown" | "identity";
+  mode?: "markdown" | "identity" | "post";
   /** e.g. "Using your active brand kit: …" (clients). */
   brandNote?: { text: string; warn?: boolean } | null;
   brandHref?: string;
   canApply?: boolean;
+  /** Static Post Studio: the brand's workspace (for uploads), product photos and logo. */
+  postKit?: { clientId: string | null; images: ProductImage[]; logo: PostLogo };
 }) {
   const crud = d.crud;
   const [limit, setLimit] = useState<LimitInfo | null>(null);
@@ -58,6 +62,7 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
   const [elapsed, setElapsed] = useState(0);
   const [clientId, setClientId] = useState(fields.find((f) => f.type === "client")?.defaultValue ?? "");
   const outputRef = useRef<HTMLElement>(null);
+  const [image, setImage] = useState<{ id: string; url: string | null } | null>(null);
 
   useEffect(() => {
     if (state.kind !== "loading") return;
@@ -89,7 +94,7 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && typeof data.text === "string") {
-        setState({ kind: "done", text: data.text, id: data.id ?? null, truncated: !!data.truncated, language: data.language ?? inputs[languageField] ?? "en", identity: data.identity ?? null });
+        setState({ kind: "done", text: data.text, id: data.id ?? null, truncated: !!data.truncated, language: data.language ?? inputs[languageField] ?? "en", identity: data.identity ?? null, post: data.post ?? null, imageUrl: inputs.image ? image?.url ?? null : null });
         return;
       }
       if (data.code === "planLimit") setLimit({ tier: data.tier ?? "free", quota: data.quota === "identity" ? "identity" : "ai", limit: Number(data.limit) || 0 });
@@ -124,6 +129,14 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
       "aria-describedby": err ? `${id(f.name)}-err` : undefined,
     };
     let control;
+    if (f.type === "image") {
+      return (
+        <div key={f.name} className="sm:col-span-2">
+          <ProductImageField name={f.name} label={f.label} clientId={postKit?.clientId ?? null} images={postKit?.images ?? []} value={image} onChange={setImage} d={d} />
+          {err && <p className="mt-1 text-xs text-yellow">{crud.invalid}</p>}
+        </div>
+      );
+    }
     if (f.type === "textarea") {
       control = <Textarea {...common} placeholder={f.placeholder} rows={f.wide ? 4 : 3} maxLength={4000} defaultValue={f.defaultValue} />;
     } else if (f.type === "select") {
@@ -259,7 +272,9 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
                 <p className="flex items-start gap-2 text-xs text-yellow"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />{t.notSaved}</p>
               )}
               {state.truncated && <p className="flex items-start gap-2 text-xs text-yellow"><AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />{t.truncated}</p>}
-              {mode === "identity" && state.identity ? (
+              {mode === "post" && state.post ? (
+                <StaticPostStudio data={state.post} imageUrl={state.imageUrl} logo={postKit?.logo ?? null} t={d.post} dir={outputDir} />
+              ) : mode === "identity" && state.identity ? (
                 <IdentityConceptsView identity={state.identity} d={d} generationId={state.id} canApply={canApply && !!state.id} brandHref={brandHref} dir={outputDir} />
               ) : (
                 <Markdown text={state.text} dir={outputDir} />

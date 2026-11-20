@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getActiveBrandKit, getClientWorkspace } from "@/lib/client/workspace";
+import { getActiveBrandKit, getClientWorkspace, listBrandAssets, resolveKitLogo } from "@/lib/client/workspace";
 import { PageHeader } from "@/components/dashboard/primitives";
 import { ToolWorkspace, type ClientToolField } from "@/components/ai/tool-workspace";
 import { IconTile, toolIcons } from "@/components/site/icons";
@@ -62,7 +62,7 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
   const linkedProject = projectOptions.find((o) => o.value === requestedProject);
   // "Do it with AI" from a Brand hub task/step pre-fills the brief.
   const brief = typeof sp.brief === "string" ? sp.brief.slice(0, 300) : "";
-  const briefField = ({ adStudio: "message", mediaPlanner: "offer" } as Record<string, string>)[tool.key];
+  const briefField = ({ adStudio: "message", mediaPlanner: "offer", metaAds: "offer", marketingStrategy: "goal", staticPost: "message" } as Record<string, string>)[tool.key];
   const prefill: Record<string, string | null | undefined> = workspace
     ? {
         brand: workspace.name,
@@ -100,12 +100,23 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
       };
     });
 
+  const isPost = tool.output === "post";
   const brandNote =
     isClient && tool.output !== "identity"
       ? kit
-        ? { text: t.brandContext.replace("{name}", kit.name) }
-        : { text: t.noBrandKit, warn: true }
+        ? { text: (isPost ? dict.dashboard.post.usingBrand : t.brandContext).replace("{name}", kit.name) }
+        : { text: isPost ? dict.dashboard.post.brandFallback : t.noBrandKit, warn: true }
       : null;
+
+  // Static Post Studio: product photos + logo for the on-brand composition.
+  const [assets, logo] = isPost && supabase && workspace ? await Promise.all([listBrandAssets(supabase, workspace.id), resolveKitLogo(supabase, kit)]) : [[], null];
+  const postKit = isPost
+    ? {
+        clientId: workspace?.id ?? null,
+        images: assets.filter((a) => a.kind === "product").map((a) => ({ id: a.id, url: a.url, name: a.caption ?? a.file_name })),
+        logo,
+      }
+    : undefined;
 
   return (
     <div className="space-y-8">
@@ -120,7 +131,8 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
         d={dict.dashboard}
         libraryHref={localizedHref(locale, "/dashboard/ai/history")}
         languageField={tool.languageField}
-        mode={tool.output === "identity" ? "identity" : "markdown"}
+        mode={tool.output === "identity" ? "identity" : isPost ? "post" : "markdown"}
+        postKit={postKit}
         brandNote={brandNote}
         brandHref={isClient ? localizedHref(locale, "/dashboard/brand") : undefined}
         canApply={tool.output === "identity"}

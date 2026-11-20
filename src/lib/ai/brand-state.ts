@@ -24,8 +24,8 @@ export async function loadBrandState(supabase: SupabaseClient, clientId: string)
       : "Brand identity: none yet (no logo, no palette)",
   );
   const logos = (assets.data ?? []).filter((a) => a.kind === "logo").length;
-  const refs = (assets.data ?? []).filter((a) => a.kind === "reference").length;
-  lines.push(`Uploaded assets: ${logos} logo file(s), ${refs} visual reference(s)`);
+  const products = (assets.data ?? []).filter((a) => a.kind === "product").length;
+  lines.push(`Uploaded assets: ${logos} logo file(s), ${products} product photo(s)`);
 
   if (plans.data?.length) lines.push(`Plans: ${plans.data.map((p) => `"${p.title}" (${p.status}, ${p.horizon})`).join("; ")}`);
   else lines.push("Plans: none yet");

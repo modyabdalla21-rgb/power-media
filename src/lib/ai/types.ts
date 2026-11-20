@@ -9,6 +9,8 @@ export type GenerateParams = {
   maxOutputTokens: number;
   /** Ask for a JSON response (Gemini JSON mode; others via the prompt). */
   json?: boolean;
+  /** Optional images (base64, PNG/JPEG/WebP) sent with the prompt, e.g. a product photo. */
+  images?: { mimeType: string; data: string }[];
   signal?: AbortSignal;
 };
 

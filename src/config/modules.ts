@@ -286,7 +286,7 @@ export const modules: Record<ModuleKey, ModuleDef> = {
     path: "/dashboard/ai/history",
     select: "*, client:clients(name), project:projects(name), author:profiles!ai_generations_user_id_fkey(full_name, email)",
     search: ["title", "output"],
-    filter: { column: "tool", options: ["adStudio", "mediaPlanner", "reportGenerator", "brandIdentity"] },
+    filter: { column: "tool", options: ["adStudio", "staticPost", "metaAds", "marketingStrategy", "offerAngles", "mediaPlanner", "reportGenerator", "brandIdentity"] },
     order: { column: "created_at", ascending: false },
     fields: [
       { column: "title", label: "title", type: "text", required: true, max: 200, wide: true },

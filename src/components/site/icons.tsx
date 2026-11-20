@@ -1,5 +1,5 @@
 import {
-  Clapperboard, Crosshair, FileBarChart, Gem, ListChecks, Radar, Stethoscope, MessagesSquare, MonitorSmartphone, Search, Sparkles, Target,
+  Clapperboard, Compass, Crosshair, FileBarChart, Gem, ImagePlus, Megaphone, ListChecks, Radar, Stethoscope, MessagesSquare, MonitorSmartphone, Search, Sparkles, Target,
   TrendingUp, Users, Workflow, type LucideIcon,
 } from "lucide-react";
 import type { ToolKey } from "@/lib/ai/tools";
@@ -24,6 +24,9 @@ export const toolIcons: Record<ToolKey, LucideIcon> = {
   growthPlan: ListChecks,
   offerAngles: Crosshair,
   growthDiagnosis: Stethoscope,
+  marketingStrategy: Compass,
+  metaAds: Megaphone,
+  staticPost: ImagePlus,
 };
 
 /** Icon tile used across services, AI tools and dashboard cards. */

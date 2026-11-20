@@ -10,7 +10,8 @@ type Opt = { value: string; label: L };
 
 export type ToolField = {
   name: string;
-  type: "text" | "textarea" | "select" | "number" | "date" | "client" | "project";
+  /** "image": a product photo from the brand's uploads (asset id). */
+  type: "text" | "textarea" | "select" | "number" | "date" | "client" | "project" | "image";
   required?: boolean;
   label: L;
   placeholder?: L;
@@ -20,7 +21,9 @@ export type ToolField = {
   wide?: boolean;
 };
 
-export type ToolKey = "adStudio" | "mediaPlanner" | "reportGenerator" | "brandIdentity" | "brandAnalysis" | "growthPlan" | "offerAngles" | "growthDiagnosis";
+export type ToolKey =
+  | "adStudio" | "mediaPlanner" | "reportGenerator" | "brandIdentity" | "brandAnalysis" | "growthPlan" | "offerAngles" | "growthDiagnosis"
+  | "marketingStrategy" | "metaAds" | "staticPost";
 
 export type ToolDefinition = {
   key: ToolKey;
@@ -33,7 +36,7 @@ export type ToolDefinition = {
   /** "all": clients can use it in their workspace (counts toward their plan). */
   access: "staff" | "all";
   /** Markdown text, or structured JSON (identity / brand analysis / growth plan). */
-  output: "markdown" | "identity" | "analysis" | "plan" | "diagnosis";
+  output: "markdown" | "identity" | "analysis" | "plan" | "diagnosis" | "post";
   /** Run from the Brand hub, not listed as a standalone tool. */
   hub?: boolean;
   /** Which plan quota a client generation consumes. */
@@ -362,6 +365,138 @@ aiTools.push(
         ],
       },
       { name: "language", type: "select", required: true, label: { en: "Language", ar: "اللغة" }, options: dialects, defaultValue: "en" },
+    ],
+  },
+);
+
+const objectives: Opt[] = [
+  { value: "sales", label: { en: "Online sales", ar: "مبيعات أونلاين" } },
+  { value: "messages", label: { en: "WhatsApp / Messenger orders", ar: "طلبات واتساب / ماسنجر" } },
+  { value: "leads", label: { en: "Leads", ar: "عملاء محتملون" } },
+  { value: "traffic", label: { en: "Website traffic", ar: "زيارات الموقع" } },
+  { value: "awareness", label: { en: "Awareness & reach", ar: "الوعي والوصول" } },
+];
+
+aiTools.push(
+  {
+    key: "marketingStrategy",
+    slug: "marketing-strategy",
+    access: "all",
+    output: "markdown",
+    quota: "ai",
+    languageField: "language",
+    titleField: "goal",
+    fields: [
+      { name: "goal", type: "text", required: true, max: 300, label: { en: "Main business goal", ar: "الهدف الرئيسي" }, placeholder: { en: "e.g. 300 orders a month from Instagram & WhatsApp", ar: "مثال: 300 طلب شهريًا من إنستجرام وواتساب" } },
+      { name: "offer", type: "text", max: 300, label: { en: "Product / service focus", ar: "المنتج / الخدمة الأساسية" } },
+      { name: "challenge", type: "textarea", label: { en: "Biggest challenge right now", ar: "أكبر تحدٍّ حاليًا" }, placeholder: { en: "e.g. lots of views, few orders; competitors are cheaper", ar: "مثال: مشاهدات كثيرة وطلبات قليلة؛ المنافسون أرخص" } },
+      audience,
+      { name: "channels", type: "text", max: 200, label: { en: "Channels you use now", ar: "القنوات التي تستخدمها الآن" }, placeholder: { en: "e.g. Instagram, WhatsApp, TikTok", ar: "مثال: إنستجرام، واتساب، تيك توك" } },
+      { name: "budget", type: "number", label: { en: "Monthly marketing budget (optional)", ar: "ميزانية التسويق الشهرية (اختياري)" } },
+      { name: "currency", type: "select", label: { en: "Currency", ar: "العملة" }, options: currencies, defaultValue: "EGP" },
+      {
+        name: "horizon",
+        type: "select",
+        required: true,
+        label: { en: "Strategy horizon", ar: "مدة الاستراتيجية" },
+        defaultValue: "3m",
+        options: [
+          { value: "1m", label: { en: "1 month", ar: "شهر" } },
+          { value: "3m", label: { en: "3 months", ar: "3 أشهر" } },
+          { value: "6m", label: { en: "6 months", ar: "6 أشهر" } },
+        ],
+      },
+      { name: "market", type: "select", required: true, label: { en: "Market", ar: "السوق" }, options: markets, defaultValue: "egypt" },
+      { name: "language", type: "select", required: true, label: { en: "Language / dialect", ar: "اللغة / اللهجة" }, options: dialects, defaultValue: "ar_eg" },
+      client,
+    ],
+  },
+  {
+    key: "metaAds",
+    slug: "meta-ads-strategy",
+    access: "all",
+    output: "markdown",
+    quota: "ai",
+    languageField: "language",
+    titleField: "offer",
+    fields: [
+      { name: "offer", type: "text", required: true, max: 300, label: { en: "Product / offer to advertise", ar: "المنتج / العرض المُعلن عنه" }, placeholder: { en: "e.g. Summer bundle — 2 pieces for 899 EGP", ar: "مثال: باكدج الصيف — قطعتين بـ 899 جنيه" } },
+      { name: "objective", type: "select", required: true, label: { en: "Campaign goal", ar: "هدف الحملة" }, options: objectives, defaultValue: "messages" },
+      { name: "budget", type: "number", label: { en: "Monthly ad budget", ar: "ميزانية الإعلانات الشهرية" } },
+      { name: "currency", type: "select", label: { en: "Currency", ar: "العملة" }, options: currencies, defaultValue: "EGP" },
+      {
+        name: "stage",
+        type: "select",
+        required: true,
+        label: { en: "Where are your ads now?", ar: "وضع إعلاناتك الآن" },
+        defaultValue: "new",
+        options: [
+          { value: "new", label: { en: "Starting from zero", ar: "سأبدأ من الصفر" } },
+          { value: "running", label: { en: "Running, results are weak", ar: "تعمل لكن النتائج ضعيفة" } },
+          { value: "scaling", label: { en: "Working, want to scale", ar: "تعمل وأريد التوسّع" } },
+        ],
+      },
+      {
+        name: "destination",
+        type: "select",
+        required: true,
+        label: { en: "Where should people go?", ar: "إلى أين يذهب العميل؟" },
+        defaultValue: "whatsapp",
+        options: [
+          { value: "whatsapp", label: { en: "WhatsApp chat", ar: "محادثة واتساب" } },
+          { value: "instagram", label: { en: "Instagram DM", ar: "رسائل إنستجرام" } },
+          { value: "website", label: { en: "Website / store", ar: "الموقع / المتجر" } },
+          { value: "lead_form", label: { en: "Instant form", ar: "نموذج فوري" } },
+        ],
+      },
+      audience,
+      { name: "performance", type: "textarea", label: { en: "Past results (optional)", ar: "نتائج سابقة (اختياري)" }, placeholder: { en: "e.g. cost per message 12 EGP, CTR 0.8%", ar: "مثال: تكلفة الرسالة 12 جنيه، نسبة النقر 0.8%" } },
+      { name: "market", type: "select", required: true, label: { en: "Market", ar: "السوق" }, options: markets, defaultValue: "egypt" },
+      { name: "language", type: "select", required: true, label: { en: "Ad language / dialect", ar: "لغة / لهجة الإعلانات" }, options: dialects, defaultValue: "ar_eg" },
+      client,
+    ],
+  },
+  {
+    key: "staticPost",
+    slug: "static-post-studio",
+    access: "all",
+    output: "post",
+    quota: "ai",
+    languageField: "language",
+    titleField: "product",
+    fields: [
+      { name: "image", type: "image", wide: true, label: { en: "Product image", ar: "صورة المنتج" } },
+      { name: "product", type: "text", required: true, max: 200, label: { en: "Product / service", ar: "المنتج / الخدمة" }, placeholder: { en: "e.g. Vitamin C glow serum 30ml", ar: "مثال: سيروم فيتامين سي 30 مل" } },
+      { name: "offer", type: "text", max: 200, label: { en: "Offer / price (optional)", ar: "العرض / السعر (اختياري)" }, placeholder: { en: "e.g. 20% off this week — 399 EGP", ar: "مثال: خصم 20% الأسبوع ده — 399 جنيه" } },
+      { name: "message", type: "textarea", label: { en: "Key message or benefit", ar: "الرسالة أو الميزة الأساسية" } },
+      {
+        name: "goal",
+        type: "select",
+        required: true,
+        label: { en: "Post goal", ar: "هدف البوست" },
+        defaultValue: "sell",
+        options: [
+          { value: "sell", label: { en: "Sell / promote an offer", ar: "بيع / ترويج عرض" } },
+          { value: "launch", label: { en: "Launch a new product", ar: "إطلاق منتج جديد" } },
+          { value: "awareness", label: { en: "Brand awareness", ar: "التعريف بالعلامة" } },
+          { value: "engage", label: { en: "Engagement", ar: "التفاعل" } },
+        ],
+      },
+      {
+        name: "format",
+        type: "select",
+        required: true,
+        label: { en: "Format", ar: "المقاس" },
+        defaultValue: "square",
+        options: [
+          { value: "square", label: { en: "Feed post 1:1", ar: "بوست 1:1" } },
+          { value: "portrait", label: { en: "Feed portrait 4:5", ar: "بوست طولي 4:5" } },
+          { value: "story", label: { en: "Story 9:16", ar: "ستوري 9:16" } },
+        ],
+      },
+      { name: "cta", type: "text", max: 60, label: { en: "Call to action (optional)", ar: "الدعوة لاتخاذ إجراء (اختياري)" }, placeholder: { en: "e.g. Order on WhatsApp", ar: "مثال: اطلب على واتساب" } },
+      { name: "language", type: "select", required: true, label: { en: "Language / dialect", ar: "اللغة / اللهجة" }, options: dialects, defaultValue: "ar_eg" },
+      client,
     ],
   },
 );

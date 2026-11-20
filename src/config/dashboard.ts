@@ -1,6 +1,6 @@
 import {
-  BarChart3, Bot, Briefcase, Clapperboard, Crosshair, Gem, Stethoscope, CreditCard, LifeBuoy, Library, Palette, FileText, FolderKanban, Inbox,
-  LayoutDashboard, ListChecks, Megaphone, Settings, Swords, Target, UsersRound, Wallet, type LucideIcon,
+  BarChart3, Bot, Briefcase, Clapperboard, Compass, Crosshair, Gem, ImagePlus, Stethoscope, CreditCard, LifeBuoy, Library, Palette, FileText, FolderKanban, Inbox,
+  LayoutDashboard, ListChecks, Megaphone, Settings, Swords, UsersRound, Wallet, type LucideIcon,
 } from "lucide-react";
 import { ALL, STAFF, genericModuleKeys, modulePath, modules, type ModuleKey, type Role } from "@/config/modules";
 import type { Dictionary } from "@/i18n/dictionaries/en";
@@ -20,7 +20,7 @@ export const moduleIcons: Record<ModuleKey, LucideIcon> = {
   brandTasks: ListChecks,
 };
 
-/** `agencyPortal`: agency-run work views, shown to clients only when the agency manages work for them. */
+/** `agencyPortal`: agency-run work views (never in the client menu). */
 type NavItem = { key: DashboardNavKey; href: string; icon: LucideIcon; roles: readonly Role[]; agencyPortal?: boolean };
 
 /** Modules that only make sense when the agency runs the account. */
@@ -71,9 +71,8 @@ export const dashboardNav: NavGroup[] = [
 type NavGroup = { group: keyof Dictionary["dashboard"]["groups"]; items: NavItem[] };
 
 /**
- * Client menu: an AI brand-growth workspace with direct access to the growth
- * tools. Agency-run views (projects, campaigns, reports, invoices) appear only
- * when the agency actually manages work for this client.
+ * Client menu: an AI brand-growth workspace. Agency-run views (projects,
+ * campaigns, reports, invoices) are never part of it.
  */
 const clientNav: NavGroup[] = [
   {
@@ -86,33 +85,34 @@ const clientNav: NavGroup[] = [
     ],
   },
   {
-    group: "growthTools",
+    group: "strategy",
     items: [
-      { key: "contentStudio", href: "/dashboard/ai/ad-copy-studio", icon: Clapperboard, roles: CLIENT },
+      { key: "strategyTool", href: "/dashboard/ai/marketing-strategy", icon: Compass, roles: CLIENT },
+      { key: "metaTool", href: "/dashboard/ai/meta-ads-strategy", icon: Megaphone, roles: CLIENT },
       { key: "offerTool", href: "/dashboard/ai/offer-angles", icon: Swords, roles: CLIENT },
-      { key: "plannerTool", href: "/dashboard/ai/campaign-media-planner", icon: Target, roles: CLIENT },
-      { key: "identityTool", href: "/dashboard/ai/brand-identity", icon: Crosshair, roles: CLIENT },
-      { key: "allTools", href: "/dashboard/ai", icon: Bot, roles: CLIENT },
-      { key: "aiLibrary", href: "/dashboard/ai/history", icon: Library, roles: CLIENT },
     ],
   },
   {
-    group: "managed",
-    items: (["projects", "campaigns", "reports", "invoices"] as const).map((k) => ({ ...mod(k), roles: CLIENT })),
+    group: "create",
+    items: [
+      { key: "postTool", href: "/dashboard/ai/static-post-studio", icon: ImagePlus, roles: CLIENT },
+      { key: "contentStudio", href: "/dashboard/ai/ad-copy-studio", icon: Clapperboard, roles: CLIENT },
+      { key: "identityTool", href: "/dashboard/ai/brand-identity", icon: Crosshair, roles: CLIENT },
+    ],
   },
   {
     group: "account",
     items: [
+      { key: "aiLibrary", href: "/dashboard/ai/history", icon: Library, roles: CLIENT },
+      { key: "allTools", href: "/dashboard/ai", icon: Bot, roles: CLIENT },
       { key: "plan", href: "/dashboard/plan", icon: CreditCard, roles: CLIENT },
       { key: "settings", href: "/dashboard/settings", icon: Settings, roles: CLIENT },
     ],
   },
 ];
 
-export function navForRole(role: Role | undefined, opts: { agencyWork?: boolean } = {}): NavGroup[] {
-  if (role === "client") {
-    return clientNav.map((g) => ({ ...g, items: g.items.filter((i) => opts.agencyWork || !i.agencyPortal) })).filter((g) => g.items.length > 0);
-  }
+export function navForRole(role: Role | undefined): NavGroup[] {
+  if (role === "client") return clientNav;
   return dashboardNav
     .map((g) => ({ ...g, items: g.items.filter((i) => !!role && i.roles.includes(role)) }))
     .filter((g) => g.items.length > 0);
