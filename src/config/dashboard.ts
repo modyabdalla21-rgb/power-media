@@ -1,5 +1,5 @@
 import {
-  BarChart3, Bot, Briefcase, CreditCard, LifeBuoy, Library, Palette, FileText, FolderKanban, Inbox, LayoutDashboard, ListChecks, Megaphone,
+  BarChart3, Bot, Briefcase, Stethoscope, CreditCard, LifeBuoy, Library, Palette, FileText, FolderKanban, Inbox, LayoutDashboard, ListChecks, Megaphone,
   Settings, UsersRound, Wallet, type LucideIcon,
 } from "lucide-react";
 import { ALL, STAFF, genericModuleKeys, modulePath, modules, type ModuleKey, type Role } from "@/config/modules";
@@ -20,11 +20,15 @@ export const moduleIcons: Record<ModuleKey, LucideIcon> = {
   brandTasks: ListChecks,
 };
 
-type NavItem = { key: DashboardNavKey; href: string; icon: LucideIcon; roles: readonly Role[] };
+/** `agencyPortal`: agency-run work views, hidden from self-serve clients. */
+type NavItem = { key: DashboardNavKey; href: string; icon: LucideIcon; roles: readonly Role[]; agencyPortal?: boolean };
+
+/** Modules that only make sense when the agency runs the account. */
+export const AGENCY_PORTAL_MODULES = ["projects", "campaigns", "reports", "invoices"] as const;
 
 const ADMIN: readonly Role[] = ["admin"];
 const CLIENT: readonly Role[] = ["client"];
-const mod = (key: (typeof genericModuleKeys)[number] | "projects"): NavItem => ({ key, href: modulePath(modules[key]), icon: moduleIcons[key], roles: modules[key].roles.view });
+const mod = (key: (typeof genericModuleKeys)[number] | "projects"): NavItem => ({ key, href: modulePath(modules[key]), icon: moduleIcons[key], roles: modules[key].roles.view, agencyPortal: (AGENCY_PORTAL_MODULES as readonly string[]).includes(key) });
 
 /** Sidebar navigation. Items are filtered by the signed-in user's role. */
 export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; items: NavItem[] }[] = [
@@ -32,6 +36,7 @@ export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; ite
     group: "workspace",
     items: [
       { key: "brand", href: "/dashboard/brand", icon: Palette, roles: CLIENT },
+      { key: "growth", href: "/dashboard/growth", icon: Stethoscope, roles: CLIENT },
       { key: "plan", href: "/dashboard/plan", icon: CreditCard, roles: CLIENT },
     ],
   },
@@ -63,8 +68,9 @@ export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; ite
   { group: "system", items: [{ key: "settings", href: "/dashboard/settings", icon: Settings, roles: ALL }] },
 ];
 
-export function navForRole(role: Role | undefined) {
+export function navForRole(role: Role | undefined, opts: { selfServe?: boolean } = {}) {
+  const hideAgency = role === "client" && opts.selfServe;
   return dashboardNav
-    .map((g) => ({ ...g, items: g.items.filter((i) => !!role && i.roles.includes(role)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => !!role && i.roles.includes(role) && !(hideAgency && i.agencyPortal)) }))
     .filter((g) => g.items.length > 0);
 }

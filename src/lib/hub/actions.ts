@@ -55,7 +55,7 @@ export async function addStepsAsTasks(generationId: string, indices: number[]): 
   if (!c || !z.uuid().safeParse(generationId).success) return { ok: false, error: "invalid" };
   const { data: gen } = await c.supabase.from("ai_generations").select("tool, data, client_id").eq("id", generationId).maybeSingle();
   const analysis = gen?.data as BrandAnalysis | null;
-  if (!gen || gen.tool !== "brandAnalysis" || gen.client_id !== c.workspace.id || !analysis?.next_steps) return { ok: false, error: "invalid" };
+  if (!gen || !["brandAnalysis", "growthDiagnosis"].includes(gen.tool) || gen.client_id !== c.workspace.id || !analysis?.next_steps) return { ok: false, error: "invalid" };
 
   const steps = [...new Set(indices)].filter((i) => Number.isInteger(i) && i >= 0 && i < analysis.next_steps.length).map((i) => analysis.next_steps[i]);
   if (!steps.length) return { ok: false, error: "invalid" };
@@ -104,4 +104,16 @@ export async function setPlanStatus(planId: string, status: string): Promise<Hub
   if (!c || !id.success || !st.success) return { ok: false, error: "invalid" };
   const { error, count } = await c.supabase.from("brand_plans").update({ status: st.data }, { count: "exact" }).eq("id", id.data).eq("client_id", c.workspace.id);
   return done(error ? { ok: false, error: "dbError" } : count ? { ok: true } : { ok: false, error: "forbidden" });
+}
+
+/** Save the brand's Smart Discovery answers (validated; RLS limits to own workspace). */
+export async function saveDiscovery(input: unknown): Promise<HubResult> {
+  const c = await ctx();
+  if (!c) return { ok: false, error: "forbidden" };
+  const { discoverySchema } = await import("@/lib/client/discovery");
+  const parsed = discoverySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const { error } = await c.supabase.from("clients").update({ discovery: parsed.data, discovery_updated_at: new Date().toISOString() }).eq("id", c.workspace.id);
+  if (!error) revalidatePath("/[locale]/dashboard", "layout");
+  return error ? { ok: false, error: "dbError" } : { ok: true };
 }

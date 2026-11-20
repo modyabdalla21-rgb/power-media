@@ -3,7 +3,8 @@ import { z } from "zod";
 import { loadContext } from "@/lib/ai/context";
 import { loadBrandState } from "@/lib/ai/brand-state";
 import { identityToMarkdown, parseIdentity } from "@/lib/ai/identity";
-import { analysisToMarkdown, parseAnalysis, parsePlan, planToMarkdown, type GrowthPlan } from "@/lib/ai/structured";
+import { analysisToMarkdown, diagnosisToMarkdown, parseAnalysis, parseDiagnosis, parsePlan, planToMarkdown, type GrowthDiagnosis, type GrowthPlan } from "@/lib/ai/structured";
+import { discoverySchema, discoveryToText } from "@/lib/client/discovery";
 import { buildPrompt } from "@/lib/ai/prompts";
 import { GENERATION_DEADLINE_MS, generateText } from "@/lib/ai/provider";
 import { getToolBySlug, type ToolDefinition } from "@/lib/ai/tools";
@@ -131,8 +132,15 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       supabase.from("brand_assets").select("kind, file_name, caption").eq("client_id", values.client_id).order("created_at", { ascending: false }).limit(10),
     ]);
     brandContext = brandContextText(brand, kit, assets ?? []);
-    // Analyser & planner also see what the brand has already done.
-    if (tool.output === "analysis" || tool.output === "plan") brandContext += `\n\n${await loadBrandState(supabase, values.client_id)}`;
+    // Analyser, planner & diagnosis also see what the brand has already done.
+    if (tool.output === "analysis" || tool.output === "plan" || tool.output === "diagnosis") brandContext += `\n\n${await loadBrandState(supabase, values.client_id)}`;
+    // Diagnosis is driven by the Smart Discovery answers.
+    if (tool.output === "diagnosis") {
+      const { data: disc } = await supabase.from("clients").select("discovery").eq("id", values.client_id).maybeSingle();
+      const parsedDisc = discoverySchema.safeParse(disc?.discovery);
+      if (!parsedDisc.success) return json({ code: "invalidInput", fields: { discovery: "required" } }, 422);
+      brandContext = `${discoveryToText(parsedDisc.data)}\n\n${brandContext}`;
+    }
     brandKitName = kit?.name ?? null;
   }
   const context = [brandContext, ctxData.text].filter(Boolean).join("\n\n");
@@ -147,6 +155,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       identity: (t: string) => { const v = parseIdentity(t); return v && { data: v, md: identityToMarkdown(v) }; },
       analysis: (t: string) => { const v = parseAnalysis(t); return v && { data: v, md: analysisToMarkdown(v) }; },
       plan: (t: string) => { const v = parsePlan(t); return v && { data: v, md: planToMarkdown(v) }; },
+      diagnosis: (t: string) => { const v = parseDiagnosis(t); return v && { data: v, md: diagnosisToMarkdown(v) }; },
     } as const;
     let structured: { data: unknown; md: string } | null = null;
     if (tool.output !== "markdown") {
@@ -165,7 +174,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
     const subject =
       tool.key === "reportGenerator"
         ? `${"clientName" in ctxData ? ctxData.clientName : ""} · ${values.period_start} → ${values.period_end}`
-        : tool.output === "analysis"
+        : tool.output === "analysis" || tool.output === "diagnosis"
           ? `${"clientName" in ctxData && ctxData.clientName ? ctxData.clientName : "Brand"} · ${new Date().toISOString().slice(0, 10)}`
           : values[tool.titleField] ?? "";
     const title = subject.trim().slice(0, 180) || tool.key;
@@ -201,6 +210,11 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
     if (tool.output === "plan" && structured && supabase && values.client_id) {
       planId = await createPlanWithTasks(supabase, values.client_id, structured.data as GrowthPlan, values, id);
     }
+    // Diagnosis → its roadmap becomes a tracked plan with prioritised tasks.
+    if (tool.output === "diagnosis" && structured && supabase && values.client_id) {
+      const dg = structured.data as GrowthDiagnosis;
+      planId = await createPlanWithTasks(supabase, values.client_id, { title: dg.roadmap.title, goal: dg.roadmap.goal, summary: dg.roadmap.summary, tasks: dg.tasks }, values, id);
+    }
 
     return json({
       text: outputText,
@@ -211,7 +225,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       model: result.model,
       language: values[tool.languageField] ?? "en",
       brandKit: brandKitName,
-      analysis: tool.output === "analysis" ? structured?.data : undefined,
+      analysis: tool.output === "analysis" || tool.output === "diagnosis" ? structured?.data : undefined,
       planId,
     });
   } catch (err) {

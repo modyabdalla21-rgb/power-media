@@ -62,7 +62,7 @@ In development, if Supabase isn't configured, the dashboard opens in **preview m
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `sb_publishable_…` key (a legacy anon JWT also works)
    - `SUPABASE_SERVICE_ROLE_KEY`: the `sb_secret_…` key, server only. It's needed to send team invite emails and to remove members.
-2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, `0002_power_ai.sql`, `0003_client_self_serve.sql`, `0004_brand_assets_projects.sql`, then `0005_brand_hub.sql`. Each script is idempotent, so it's safe to run again.
+2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, `0002_power_ai.sql`, `0003_client_self_serve.sql`, `0004_brand_assets_projects.sql`, `0005_brand_hub.sql`, then `0006_growth_engine.sql`. Each script is idempotent, so it's safe to run again.
 3. **Make yourself admin**: sign up on the site, confirm your email, then run:
    ```sql
    update public.profiles set role = 'admin' where email = 'you@example.com';
@@ -119,6 +119,15 @@ Three tools live at `/[locale]/dashboard/ai`. They're for staff (`admin` and `te
 - **AI Logo & Brand Identity:** `/dashboard/ai/brand-identity` returns structured JSON with positioning, palette, typography, voice and three SVG logo concepts. Any concept can be applied as the active kit. SVGs are sanitised against an allow-list and only ever rendered through `<img>` data URIs.
 - **Plans:** `clients.plan_tier` (`free` / `growth` / `pro`), with limits in `src/config/plans.ts`. Usage is counted monthly from `ai_generations` and enforced before any AI call. At the limit, an upgrade modal creates a `client_requests` row. Staff handle requests in **Client requests** and change the tier in **Clients**. There's no payment gateway yet.
 - **Access:** clients can edit only their own workspace's brand fields (a trigger protects plan, status, retainer and notes), plus their own brand kits, generations and requests.
+
+## AI Brand Growth Engine
+
+- **Growth diagnosis** (`/dashboard/growth`): a 6-step Smart Discovery interview covering active channels, stage, monthly budget range in local currency, main bottleneck, content capacity, and the 90-day goal and offer. Answers are saved to `clients.discovery`. One AI call (`growthDiagnosis`) returns a diagnosis with the root-cause bottleneck, a phased roadmap, and 8–12 prioritised tasks sized to the budget and capacity. The roadmap becomes a tracked plan in the Brand hub.
+- **Content & Reels Studio** (`adStudio`): Meta, TikTok and Google ads, posts, Reels/TikTok **shooting scripts** (shot list, spoken lines in the chosen dialect, on-screen text, caption, CTA, shooting and editing notes) and a **7-day content calendar**. Uses Hook-Story-Offer, PAS, AIDA or Before-After-Bridge, or auto-picks one, and follows the brand kit.
+- **Offer & Competitor Angles** (`offerAngles`): positioning, a comparison built only from the competitor facts you provide, 5–7 offer angles, offer packages, objection handlers and 10 hooks for Egypt and the Gulf.
+- **Identity Studio:** the logo brief asks for a constructed monogram, a grid-based symbol, and an emblem or lockup, with optical balance, negative space and at most 3 colors; clip-art and stick figures are forbidden.
+- **Self-serve menu:** Brand hub, Growth diagnosis, Plan & usage, AI tools and library. Agency-run views (Projects, Campaigns, Reports, Invoices) are hidden and redirect for self-serve brands; agency-managed clients keep them.
+- **Mobile:** every module table becomes stacked cards below `md`. The dashboard shell clips horizontal overflow, and the mobile sidebar is an overlay drawer only.
 
 ## Brand hub (AI-first core workflow)
 

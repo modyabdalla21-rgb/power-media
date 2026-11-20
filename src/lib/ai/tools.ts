@@ -20,7 +20,7 @@ export type ToolField = {
   wide?: boolean;
 };
 
-export type ToolKey = "adStudio" | "mediaPlanner" | "reportGenerator" | "brandIdentity" | "brandAnalysis" | "growthPlan";
+export type ToolKey = "adStudio" | "mediaPlanner" | "reportGenerator" | "brandIdentity" | "brandAnalysis" | "growthPlan" | "offerAngles" | "growthDiagnosis";
 
 export type ToolDefinition = {
   key: ToolKey;
@@ -33,7 +33,7 @@ export type ToolDefinition = {
   /** "all": clients can use it in their workspace (counts toward their plan). */
   access: "staff" | "all";
   /** Markdown text, or structured JSON (identity / brand analysis / growth plan). */
-  output: "markdown" | "identity" | "analysis" | "plan";
+  output: "markdown" | "identity" | "analysis" | "plan" | "diagnosis";
   /** Run from the Brand hub, not listed as a standalone tool. */
   hub?: boolean;
   /** Which plan quota a client generation consumes. */
@@ -93,9 +93,24 @@ export const aiTools: ToolDefinition[] = [
           { value: "google_search_ad", label: { en: "Google Search ad (RSA)", ar: "إعلان بحث جوجل" } },
           { value: "social_post", label: { en: "Organic social posts", ar: "منشورات سوشيال عضوية" } },
           { value: "video_script", label: { en: "Short video script (Reels / TikTok)", ar: "سيناريو فيديو قصير (ريلز / تيك توك)" } },
+          { value: "reels_shoot", label: { en: "Reels / TikTok shooting script (scenes + spoken lines)", ar: "سيناريو تصوير ريلز / تيك توك (مشاهد + حوار)" } },
+          { value: "content_calendar", label: { en: "7-day content calendar", ar: "خطة محتوى لمدة 7 أيام" } },
         ],
       },
       { name: "language", type: "select", required: true, label: { en: "Language / dialect", ar: "اللغة / اللهجة" }, options: dialects, defaultValue: "ar_eg" },
+      {
+        name: "framework",
+        type: "select",
+        label: { en: "Copywriting framework", ar: "إطار الكتابة" },
+        defaultValue: "auto",
+        options: [
+          { value: "auto", label: { en: "Best fit (AI picks per variation)", ar: "الأنسب (يختار الذكاء الاصطناعي لكل نسخة)" } },
+          { value: "hso", label: { en: "Hook – Story – Offer", ar: "خطّاف – قصة – عرض" } },
+          { value: "pas", label: { en: "PAS — Problem, Agitate, Solve", ar: "PAS — مشكلة، تضخيم، حل" } },
+          { value: "aida", label: { en: "AIDA — Attention, Interest, Desire, Action", ar: "AIDA — انتباه، اهتمام، رغبة، فعل" } },
+          { value: "bab", label: { en: "Before – After – Bridge", ar: "قبل – بعد – الجسر" } },
+        ],
+      },
       { name: "offer", type: "text", required: true, max: 200, label: { en: "Product / offer", ar: "المنتج / العرض" }, placeholder: { en: "e.g. Summer skincare bundle — 20% off", ar: "مثال: باقة العناية بالبشرة الصيفية — خصم 20٪" } },
       { name: "brand", type: "text", max: 120, label: { en: "Brand name", ar: "اسم العلامة" } },
       audience,
@@ -299,6 +314,54 @@ aiTools.push(
       { name: "currency", type: "select", label: { en: "Currency", ar: "العملة" }, options: currencies, defaultValue: "EGP" },
       { name: "channels", type: "text", max: 200, label: { en: "Channels you use (optional)", ar: "القنوات التي تستخدمها (اختياري)" } },
       { name: "language", type: "select", required: true, label: { en: "Language", ar: "اللغة" }, options: hubLanguages, defaultValue: "en" },
+    ],
+  },
+);
+
+aiTools.push(
+  {
+    key: "offerAngles",
+    slug: "offer-angles",
+    access: "all",
+    output: "markdown",
+    quota: "ai",
+    languageField: "language",
+    titleField: "product",
+    fields: [
+      { name: "product", type: "text", required: true, max: 200, label: { en: "Product / service", ar: "المنتج / الخدمة" }, placeholder: { en: "e.g. Handmade leather wallet", ar: "مثال: محفظة جلد هاند ميد" } },
+      { name: "price", type: "text", max: 100, label: { en: "Your price", ar: "سعرك" }, placeholder: { en: "e.g. 650 EGP", ar: "مثال: 650 جنيه" } },
+      { name: "usp", type: "textarea", label: { en: "What's included / what makes it different", ar: "ماذا يشمل / ما الذي يميّزه" } },
+      { name: "competitors", type: "textarea", wide: true, label: { en: "Competitors (names, prices, their offers — what you know)", ar: "المنافسون (الأسماء، الأسعار، عروضهم — ما تعرفه)" }, placeholder: { en: "e.g. Brand X — 450 EGP, free shipping over 1,000", ar: "مثال: براند X — 450 جنيه، شحن مجاني فوق 1,000" } },
+      audience,
+      { name: "market", type: "select", required: true, label: { en: "Market", ar: "السوق" }, options: markets, defaultValue: "egypt" },
+      { name: "language", type: "select", required: true, label: { en: "Language / dialect", ar: "اللغة / اللهجة" }, options: dialects, defaultValue: "ar_eg" },
+      client,
+    ],
+  },
+  {
+    key: "growthDiagnosis",
+    slug: "growth-diagnosis",
+    access: "all",
+    output: "diagnosis",
+    quota: "ai",
+    hub: true,
+    languageField: "language",
+    titleField: "language",
+    fields: [
+      { ...client, required: true, label: { en: "Client", ar: "العميل" } },
+      {
+        name: "horizon",
+        type: "select",
+        required: true,
+        label: { en: "Roadmap timeframe", ar: "مدة خارطة الطريق" },
+        defaultValue: "1m",
+        options: [
+          { value: "2w", label: { en: "2 weeks", ar: "أسبوعان" } },
+          { value: "1m", label: { en: "1 month", ar: "شهر" } },
+          { value: "3m", label: { en: "3 months", ar: "3 أشهر" } },
+        ],
+      },
+      { name: "language", type: "select", required: true, label: { en: "Language", ar: "اللغة" }, options: dialects, defaultValue: "en" },
     ],
   },
 );

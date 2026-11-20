@@ -32,6 +32,7 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
   const isClient = profile?.role === "client";
   if (isClient && tool.access !== "all") redirect(localizedHref(locale, "/dashboard/ai"));
   // Analysis & plans run from the Brand hub.
+  if (tool.output === "diagnosis") redirect(localizedHref(locale, isClient ? "/dashboard/growth" : "/dashboard/brand-tasks"));
   if (tool.hub || tool.output === "analysis" || tool.output === "plan") redirect(localizedHref(locale, isClient ? "/dashboard/brand" : "/dashboard/brand-tasks"));
   const meta = dict.aiTools[tool.key];
   const cl = contentLocale(locale);
@@ -79,6 +80,8 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
   const fields: ClientToolField[] = tool.fields
     // Clients never pick a client (it's their workspace) but may link one of their projects.
     .filter((f) => !isClient || f.type !== "client")
+    // Self-serve brands without projects don't need a project picker.
+    .filter((f) => !(isClient && f.type === "project" && projectOptions.length === 0))
     .map((f) => {
       const options = f.type === "client" ? clientOptions : f.type === "project" ? projectOptions : (f.options ?? []).map((o) => ({ value: o.value, label: o.label[cl] }));
       const pre =

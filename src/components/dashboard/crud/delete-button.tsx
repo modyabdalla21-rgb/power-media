@@ -28,7 +28,7 @@ export function ConfirmDelete({ action, hidden, t, title, body, label, errorText
       <button
         type="button"
         onClick={() => ref.current?.showModal()}
-        className="inline-flex size-8 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-orange/10 hover:text-yellow"
+        className="inline-flex size-10 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-orange/10 hover:text-yellow"
         aria-label={label ?? t.delete}
         title={label ?? t.delete}
       >

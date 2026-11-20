@@ -28,6 +28,7 @@ export function RecordDialog({ triggerVariant, triggerLabel, ...props }: Props) 
     ref.current?.showModal();
   };
   const close = () => ref.current?.close();
+  const titleId = useId();
 
   return (
     <>
@@ -37,22 +38,22 @@ export function RecordDialog({ triggerVariant, triggerLabel, ...props }: Props) 
           {triggerLabel}
         </Button>
       ) : (
-        <button type="button" onClick={open} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-300 hover:bg-blue/10 hover:text-white">
+        <button type="button" onClick={open} className="inline-flex min-h-10 items-center rounded-lg px-3 text-xs font-medium text-blue-300 hover:bg-blue/10 hover:text-white">
           {triggerLabel}
         </button>
       )}
       <dialog
         ref={ref}
-        aria-labelledby={`dlg-${props.moduleKey}-${props.values?.id ?? "new"}`}
+        aria-labelledby={titleId}
         className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-(--radius-card) border border-line-strong bg-surface-1 p-0 text-white shadow-(--shadow-card) backdrop:bg-navy/75 backdrop:backdrop-blur-sm"
       >
-        {session > 0 && <RecordForm key={session} {...props} onDone={close} />}
+        {session > 0 && <RecordForm key={session} {...props} titleId={titleId} onDone={close} />}
       </dialog>
     </>
   );
 }
 
-function RecordForm({ moduleKey, title, fields, values, t, onDone, readOnlyView }: Omit<Props, "triggerVariant" | "triggerLabel"> & { onDone: () => void }) {
+function RecordForm({ moduleKey, title, fields, values, t, onDone, readOnlyView, titleId }: Omit<Props, "triggerVariant" | "triggerLabel"> & { onDone: () => void; titleId: string }) {
   const [state, action, pending] = useActionState<CrudState, FormData>(saveRecord, undefined);
   const uid = useId();
   const isEdit = !!values;
@@ -69,7 +70,7 @@ function RecordForm({ moduleKey, title, fields, values, t, onDone, readOnlyView 
       <input type="hidden" name="_module" value={moduleKey} />
       {isEdit && <input type="hidden" name="_id" value={values.id} />}
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface-1/95 px-6 py-4 backdrop-blur">
-        <h2 id={`dlg-${moduleKey}-${values?.id ?? "new"}`} className="font-semibold">{title}</h2>
+        <h2 id={titleId} className="font-semibold">{title}</h2>
         <button type="button" onClick={onDone} aria-label={t.close} className="inline-flex size-8 items-center justify-center rounded-lg text-ink-muted hover:bg-white/5 hover:text-white">
           <X className="size-4" aria-hidden />
         </button>

@@ -5,9 +5,11 @@ import { EmptyState, PageHeader } from "@/components/dashboard/primitives";
 import { ConfirmDelete } from "@/components/dashboard/crud/delete-button";
 import { RecordDialog } from "@/components/dashboard/crud/record-dialog";
 import { renderCell } from "@/components/dashboard/crud/record-table";
+import { RecordCards } from "@/components/dashboard/crud/record-cards";
 import { ModuleToolbar } from "@/components/dashboard/crud/toolbar";
 import type { ClientField, RecordValues } from "@/components/dashboard/crud/types";
-import { moduleIcons } from "@/config/dashboard";
+import { AGENCY_PORTAL_MODULES, moduleIcons } from "@/config/dashboard";
+import { getClientWorkspace } from "@/lib/client/workspace";
 import { can, columnsForRole, fieldsForRole, modulePath, type ModuleDef, type RelationSource, type Role } from "@/config/modules";
 import { localizedHref, type Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/dictionaries/en";
@@ -76,6 +78,9 @@ export async function ModuleView({ def, locale, dict, searchParams }: {
     );
   }
   if (!can(profile.role, def.roles.view)) redirect(localizedHref(locale, "/dashboard"));
+  if (profile.role === "client" && (AGENCY_PORTAL_MODULES as readonly string[]).includes(def.key) && (await getClientWorkspace())?.source === "self_serve") {
+    redirect(localizedHref(locale, "/dashboard/brand"));
+  }
 
   const sp = searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
@@ -107,6 +112,14 @@ export async function ModuleView({ def, locale, dict, searchParams }: {
     return `${localizedHref(locale, basePath)}${s.size ? `?${s}` : ""}`;
   };
   const filtered = !!(q || status);
+  const rowActions = (row: Row) => (
+    <>
+      {canUpdate && (
+        <RecordDialog moduleKey={def.key} title={`${t.editTitle} — ${m.title}`} fields={fields} values={toValues(row, fields)} t={t} triggerVariant="edit" triggerLabel={t.edit} />
+      )}
+      {canDelete && <ConfirmDelete action={deleteRecord} hidden={{ _module: def.key, _id: row.id }} t={t} />}
+    </>
+  );
   const showActions = canUpdate || canDelete;
 
   return (
@@ -140,7 +153,10 @@ export async function ModuleView({ def, locale, dict, searchParams }: {
             <EmptyState icon={Icon} title={m.emptyTitle} body={m.emptyBody} />
           )
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Mobile: stacked cards — no sideways scrolling. */}
+          <RecordCards rows={rows} columns={columns} dict={dict} locale={locale} basePath={basePath} actions={showActions ? rowActions : undefined} />
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[760px] text-sm">
               <thead className="border-b border-line bg-white/[0.02]">
                 <tr>
@@ -160,20 +176,7 @@ export async function ModuleView({ def, locale, dict, searchParams }: {
                     ))}
                     {showActions && (
                       <td className="px-5 py-3.5 text-end">
-                        <div className="inline-flex items-center gap-1">
-                          {canUpdate && (
-                            <RecordDialog
-                              moduleKey={def.key}
-                              title={`${t.editTitle} — ${m.title}`}
-                              fields={fields}
-                              values={toValues(row, fields)}
-                              t={t}
-                              triggerVariant="edit"
-                              triggerLabel={t.edit}
-                            />
-                          )}
-                          {canDelete && <ConfirmDelete action={deleteRecord} hidden={{ _module: def.key, _id: row.id }} t={t} />}
-                        </div>
+                        <div className="inline-flex items-center gap-1">{rowActions(row)}</div>
                       </td>
                     )}
                   </tr>
@@ -181,6 +184,7 @@ export async function ModuleView({ def, locale, dict, searchParams }: {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

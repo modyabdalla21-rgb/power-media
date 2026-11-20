@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileText, Gem, Megaphone, PenLine, Target } from "lucide-react";
 import { SvgLogo } from "@/components/brand/brand-visuals";
 import { DecisionForm } from "@/components/client/decision-form";
@@ -12,7 +12,7 @@ import { toolIcons } from "@/components/site/icons";
 import { LinkButton } from "@/components/ui/button";
 import { fieldsForRole, modules } from "@/config/modules";
 import { localizedHref } from "@/i18n/config";
-import { getActiveBrandKit, resolveKitLogo, BRAND_KIT_COLUMNS, type BrandKit } from "@/lib/client/workspace";
+import { getActiveBrandKit, getClientWorkspace, resolveKitLogo, BRAND_KIT_COLUMNS, type BrandKit } from "@/lib/client/workspace";
 import { deleteRecord } from "@/lib/crud/actions";
 import { loadRelationOptions } from "@/lib/crud/queries";
 import { getToolByKey } from "@/lib/ai/tools";
@@ -41,6 +41,7 @@ export default async function ProjectPage({ params }: PageProps<"/[locale]/dashb
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile();
   if (!supabase || !profile) notFound();
+  if (profile.role === "client" && (await getClientWorkspace())?.source === "self_serve") redirect(localizedHref(locale, "/dashboard/brand"));
 
   const def = modules.projects;
   const { data } = await supabase.from("projects").select(def.select).eq("id", id).maybeSingle();

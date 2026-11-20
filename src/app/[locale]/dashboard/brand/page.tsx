@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2, Circle, Gem, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Circle, Gem, Sparkles, Stethoscope } from "lucide-react";
 import { AnalyzePanel } from "@/components/hub/analyze-panel";
 import { NextSteps, type Step } from "@/components/hub/next-steps";
 import { PlanActions } from "@/components/hub/plan-actions";
@@ -55,11 +55,12 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
 
   // ── Hub data: latest AI analysis, plans, tasks (RLS: own workspace only).
   const [{ data: analysisRow }, { data: planRows }, { data: taskRows }] = await Promise.all([
-    supabase.from("ai_generations").select("id, data, created_at").eq("client_id", workspace.id).eq("tool", "brandAnalysis").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("ai_generations").select("id, data, created_at").eq("client_id", workspace.id).in("tool", ["brandAnalysis", "growthDiagnosis"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("brand_plans").select("id, title, goal, summary, horizon, status, source, created_at").eq("client_id", workspace.id).order("created_at", { ascending: false }).limit(20),
     supabase.from("brand_tasks").select("id, title, details, category, priority, status, due_date, plan_id, tool_hint, source").eq("client_id", workspace.id).order("status").order("sort_order").order("created_at", { ascending: false }).limit(200),
   ]);
-  const analysis = (analysisRow?.data ?? null) as BrandAnalysis | null;
+  // Latest of a quick analysis or a full Growth Diagnosis (a superset of the analysis shape).
+  const analysis = (analysisRow?.data ?? null) as (BrandAnalysis & { bottleneck_insight?: string; roadmap?: { title: string; phases: { name: string; focus: string; timeframe?: string }[] } }) | null;
   const plans = (planRows ?? []) as { id: string; title: string; goal: string | null; summary: string | null; horizon: string; status: string; source: string; created_at: string }[];
   const tasks = (taskRows ?? []) as HubTask[];
   const activePlans = plans.filter((p) => p.status === "active");
@@ -87,7 +88,7 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
     { key: "identity", ok: !!active, href: identityHref },
     { key: "logo", ok: hasLogo, href: "#identity" },
     { key: "references", ok: references.length > 0, href: "#identity" },
-    { key: "analysis", ok: !!analysis, href: "#analysis" },
+    { key: "analysis", ok: !!analysis, href: localizedHref(locale, "/dashboard/growth") },
     { key: "plan", ok: plans.length > 0, href: "#plans" },
     { key: "task", ok: tasks.some((t) => t.status === "done"), href: "#tasks" },
   ] as const;
@@ -146,6 +147,25 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
                 <StatusBadge value="active" label={`${h.stage}: ${opts[analysis.stage] ?? analysis.stage}`} />
               </div>
               <p className="text-sm leading-relaxed" dir="auto">{analysis.summary}</p>
+              {analysis.bottleneck_insight && (
+                <div className="rounded-xl border border-orange/25 bg-orange/5 p-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-yellow">{h.bottleneck}</h3>
+                  <p className="mt-1 text-sm leading-relaxed" dir="auto">{analysis.bottleneck_insight}</p>
+                </div>
+              )}
+              {analysis.roadmap?.phases?.length ? (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-300">{h.roadmap} · <span className="normal-case" dir="auto">{analysis.roadmap.title}</span></h3>
+                  <ol className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {analysis.roadmap.phases.map((ph, i) => (
+                      <li key={ph.name + i} className="rounded-lg border border-line p-2.5 text-sm" dir="auto">
+                        <p className="font-medium">{i + 1}. {ph.name}{ph.timeframe ? <span className="text-xs text-ink-subtle"> · {ph.timeframe}</span> : null}</p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-ink-muted">{ph.focus}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 {analysis.strengths.length > 0 && (
                   <div>
@@ -162,7 +182,15 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
           ) : (
             <p className="mt-3 text-sm leading-relaxed text-ink-muted">{h.analysisEmpty}</p>
           )}
-          <div className="mt-5 border-t border-line pt-4"><AnalyzePanel d={d} language={language} hasAnalysis={!!analysis} /></div>
+          <Link href={localizedHref(locale, "/dashboard/growth")} className="mt-5 flex items-center gap-3 rounded-xl border border-blue/30 bg-blue/10 p-3 transition-colors hover:border-blue/60">
+            <Stethoscope className="size-5 shrink-0 text-blue-300" aria-hidden />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">{h.runDiscovery}</span>
+              <span className="block text-xs text-ink-muted">{h.discoveryHint}</span>
+            </span>
+            <ArrowRight className="flip-rtl size-4 shrink-0 text-blue-300" aria-hidden />
+          </Link>
+          <div className="mt-4 border-t border-line pt-4"><AnalyzePanel d={d} language={language} hasAnalysis={!!analysis} /></div>
         </section>
       </div>
 

@@ -65,6 +65,25 @@ const planSchema = z.object({
 });
 export type GrowthPlan = z.infer<typeof planSchema>;
 
+const diagnosisSchema = z.object({
+  readiness_score: int(0, 100, 50),
+  stage: pick(["foundation", "launch", "growth", "scale"] as const, "foundation"),
+  summary: str(1200),
+  bottleneck_insight: z.string().trim().max(1200).optional().default(""),
+  strengths: items(str(240), 0, 5),
+  gaps: items(z.object({ area: str(80), issue: str(300) }), 1, 6),
+  next_steps: items(step, 1, 5),
+  roadmap: z.object({
+    title: str(200),
+    goal: str(1000),
+    summary: str(2000),
+    phases: items(z.object({ name: str(120), focus: str(400), timeframe: z.string().trim().max(60).optional().default("") }), 1, 4),
+  }),
+  tasks: items(planTask, 3, 12),
+});
+/** Diagnosis is a superset of BrandAnalysis (same fields + bottleneck, roadmap, tasks). */
+export type GrowthDiagnosis = z.infer<typeof diagnosisSchema>;
+
 function extractJson(text: string): unknown {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -89,6 +108,23 @@ function parseWith<T>(schema: z.ZodType<T>, text: string, label: string): T | nu
 
 export const parseAnalysis = (text: string) => parseWith(analysisSchema, text, "analysis");
 export const parsePlan = (text: string) => parseWith(planSchema, text, "plan");
+export const parseDiagnosis = (text: string) => parseWith(diagnosisSchema, text, "diagnosis");
+
+export function diagnosisToMarkdown(d: GrowthDiagnosis) {
+  return [
+    analysisToMarkdown(d),
+    "",
+    ...(d.bottleneck_insight ? ["## Bottleneck", d.bottleneck_insight, ""] : []),
+    `## Roadmap — ${d.roadmap.title}`,
+    `**Goal:** ${d.roadmap.goal}`,
+    "",
+    d.roadmap.summary,
+    "",
+    ...d.roadmap.phases.map((p, i) => `${i + 1}. **${p.name}**${p.timeframe ? ` (${p.timeframe})` : ""} — ${p.focus}`),
+    "",
+    planToMarkdown({ title: "Tasks", goal: d.roadmap.goal, summary: "", tasks: d.tasks }).split("\n").slice(5).join("\n"),
+  ].join("\n");
+}
 
 export function analysisToMarkdown(a: BrandAnalysis) {
   return [

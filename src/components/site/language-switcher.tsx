@@ -7,7 +7,7 @@ import { locales, localeMeta, switchLocalePath, type Locale } from "@/i18n/confi
 import { cn } from "@/lib/utils";
 
 /** English · العربية · مصري (Egyptian colloquial mode). */
-export function LanguageSwitcher({ locale, label, className, variant = "menu" }: { locale: Locale; label: string; className?: string; variant?: "menu" | "inline" }) {
+export function LanguageSwitcher({ locale, label, className, variant = "menu", compact }: { locale: Locale; label: string; className?: string; variant?: "menu" | "inline"; /** Short label on small screens (dashboard header). */ compact?: boolean }) {
   const pathname = usePathname() ?? `/${locale}`;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -58,7 +58,14 @@ export function LanguageSwitcher({ locale, label, className, variant = "menu" }:
         className="inline-flex h-10 items-center gap-1.5 rounded-(--radius-control) px-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-white/5 hover:text-white"
       >
         <Languages className="size-4" aria-hidden />
-        {localeMeta[locale].label}
+        {compact ? (
+          <>
+            <span className="sm:hidden">{localeMeta[locale].short}</span>
+            <span className="hidden sm:inline">{localeMeta[locale].label}</span>
+          </>
+        ) : (
+          localeMeta[locale].label
+        )}
         <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} aria-hidden />
       </button>
       {open && (

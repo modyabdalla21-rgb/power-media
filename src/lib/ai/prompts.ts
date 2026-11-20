@@ -57,6 +57,32 @@ Count characters carefully; character limits apply to Arabic too.`,
 - **Production notes** (talent, location, props, editing style)`,
 };
 
+FORMAT_GUIDE.reels_shoot = `Format: production-ready Reels / TikTok SHOOTING SCRIPTS (vertical 9:16, 20–45s). For each variation provide a "### Script N — <concept>" heading with:
+- **Concept & angle** (one line; name the framework used)
+- **Hook (0–2s)**: the exact first spoken line + on-screen text + the opening visual (pattern interrupt)
+- A Markdown table with columns: # | Time | Shot / visual (camera angle, framing, action, props) | Spoken script (exact words, in the requested dialect) | On-screen text
+  (5–8 rows; each row one shot; include at least one product close-up and one proof moment)
+- **Caption** (ready to paste, with line breaks) + **Hashtags** (5–8, local + niche)
+- **CTA** (spoken + on-screen, e.g. order on WhatsApp / link in bio)
+- **Shooting checklist**: location, light, props, talent, phone settings, b-roll list
+- **Editing notes**: pacing, transitions, captions style, sound style (no named copyrighted songs)
+Scripts must be shootable by one person with a phone.`;
+
+FORMAT_GUIDE.content_calendar = `Format: a 7-DAY CONTENT CALENDAR built on 3–4 content pillars that fit the brand kit.
+Start with "## Content pillars" (pillar → purpose → example).
+Then "## 7-day calendar" as a Markdown table: Day | Pillar | Format (Reel / Carousel / Story / Post / Live) | Hook (exact first line) | Content outline | Caption (short, ready) | CTA | Best time to post (local).
+Mix formats (at least 3 Reels), include one engagement post (poll/question), one proof/UGC post and one direct-offer post.
+Then "## Production batch plan": how to film/create all 7 in 1–2 sessions.
+Then "## Reels scripts": full short scripts (hook + 4–6 beats + CTA) for the 3 Reels in the calendar.`;
+
+const FRAMEWORKS: Record<string, string> = {
+  auto: "Pick the best-fitting framework per variation (Hook-Story-Offer, PAS, AIDA or Before-After-Bridge) and label it.",
+  hso: "Use Hook → Story → Offer: a scroll-stopping hook, a short relatable story (customer or founder), then a clear offer with urgency.",
+  pas: "Use PAS: name the Problem in the audience's own words, Agitate the cost of ignoring it, then Solve with the product + proof + CTA.",
+  aida: "Use AIDA: Attention (hook), Interest (specific benefit), Desire (proof, outcome, scarcity), Action (single clear CTA).",
+  bab: "Use Before → After → Bridge: the painful 'before', the desirable 'after', and the product as the bridge.",
+};
+
 const OBJECTIVES: Record<string, string> = {
   sales: "online sales / purchases",
   leads: "lead generation",
@@ -82,9 +108,9 @@ export function buildPrompt(tool: ToolDefinition, inputs: Record<string, string>
   const contextBlock = context ? `\n\nAgency records (factual — rely on these, do not contradict them):\n${context}` : "";
 
   if (tool.key === "adStudio") {
-    const n = Math.min(5, Math.max(1, Number(inputs.variations) || 3));
+    const n = inputs.format === "content_calendar" ? 1 : Math.min(5, Math.max(1, Number(inputs.variations) || 3));
     return {
-      system: `You are a senior direct-response copywriter at POWER MEDIA, specialised in MENA performance marketing.\n${COMMON_RULES}\n\n${languageRule}\n\n${FORMAT_GUIDE[inputs.format] ?? FORMAT_GUIDE.meta_ad}\n\nFinish with a short "## Notes" section listing assumptions and what to A/B test first.`,
+      system: `You are a senior direct-response copywriter and short-form video strategist at POWER MEDIA, specialised in MENA performance marketing (Egypt & GCC).\n${COMMON_RULES}\n- Write like the best local creators: specific, sensory, conversational; no corporate filler. Every hook must create curiosity, call out the audience or promise a concrete outcome within the first 2 seconds.\n- Stay consistent with the brand profile & brand kit in the records (tone, personality, colors for visual direction).\n\n${languageRule}\n\nFramework: ${FRAMEWORKS[inputs.framework] ?? FRAMEWORKS.auto}\n\n${FORMAT_GUIDE[inputs.format] ?? FORMAT_GUIDE.meta_ad}\n\nFinish with a short "## Notes" section listing assumptions and what to A/B test first.`,
       prompt: `Write ${n} variation(s).\n\nBrief:\n${block([
         line("Product / offer", inputs.offer),
         line("Brand", inputs.brand),
@@ -94,8 +120,8 @@ export function buildPrompt(tool: ToolDefinition, inputs: Record<string, string>
         line("Call to action", inputs.cta),
       ])}${contextBlock}`,
       temperature: 0.9,
-      // ~600 tokens per variation (Arabic needs more tokens per word) + notes.
-      maxOutputTokens: 600 + n * 600,
+      // ~600–900 tokens per variation (Arabic needs more tokens per word) + notes.
+      maxOutputTokens: inputs.format === "content_calendar" ? 6000 : inputs.format === "reels_shoot" ? 800 + n * 1100 : 600 + n * 600,
     };
   }
 
@@ -131,6 +157,67 @@ Consider local context: Snapchat's strength in KSA, WhatsApp-led conversion in E
 Categories: content | video | ads | social | brand | website | research | other.
 "tool" says which POWER AI tool helps execute it: "adStudio" (ad copy, posts, video scripts), "mediaPlanner" (campaign structure & budget), "brandIdentity" (logo/identity), "growthPlan" (a deeper plan) or null.
 Respect the brand's market, dialect and budget reality (Egypt/GCC). Don't invent results or numbers.`;
+
+  if (tool.key === "offerAngles") {
+    return {
+      system: `You are a senior offer strategist and conversion copywriter for Egyptian and Gulf e-commerce and service brands.
+${COMMON_RULES}
+- Use ONLY the competitor facts the user provides; never invent competitor prices, offers or claims. If information is missing, say what to check.
+- Ground angles in local buying psychology: trust (cash on delivery, easy returns, real reviews), value framing (bundles, gifts, free shipping thresholds), installments where relevant (e.g. valU, Sympl, Tabby, Tamara — mention only as options to consider), occasions (Ramadan, Eid, White Friday, back to school, national days), social proof and urgency that is honest.
+
+${languageRule}
+
+Structure:
+## Positioning snapshot — where this product can win vs. the competitors given (3–4 bullets).
+## Competitor comparison — Markdown table built only from the provided info: Competitor | Price | Offer | Weakness to exploit.
+## Offer angles — 5–7 angles. For each: **Name**, the angle in one sentence, why it works for this audience, an example headline, and the best channel/format.
+## Irresistible offer structures — 3–4 concrete offer packages (what's included, price framing, risk reversal, urgency) that keep margin healthy.
+## Objection handlers — Markdown table: Objection | Response (in the requested language) | Proof to show.
+## Ad hooks — 10 scroll-stopping hooks in the requested language/dialect, labelled by angle.
+## Pricing psychology tips — 3–5 bullets.`,
+      prompt: `Build offer angles for:\n${block([
+        line("Product / service", inputs.product),
+        line("Our price", inputs.price),
+        line("Included / differentiators", inputs.usp),
+        line("Competitors (as provided)", inputs.competitors),
+        line("Target audience", inputs.audience),
+        line("Market", MARKETS[inputs.market] ?? inputs.market),
+      ])}${contextBlock}`,
+      temperature: 0.8,
+      maxOutputTokens: 6000,
+    };
+  }
+
+  if (tool.key === "growthDiagnosis") {
+    const HORIZONS: Record<string, string> = { "2w": "2 weeks", "1m": "1 month", "3m": "3 months" };
+    return {
+      system: `You are POWER AI, a senior growth strategist diagnosing a brand from a smart discovery interview and building a sharp, realistic roadmap.
+${COMMON_RULES.replace("Output clean Markdown only", "Output JSON only (no Markdown)")}
+
+${languageRule} (Applies to all human-readable values; keep enum values in English.)
+
+Use the discovery answers as the primary evidence (stage, channels, budget range, bottleneck, content capacity, goal) together with the brand kit and current state. Be specific to THIS brand — no generic advice.
+
+Return ONE JSON object:
+{
+  "readiness_score": integer 0–100,
+  "stage": "foundation" | "launch" | "growth" | "scale",
+  "summary": string (2–3 sentences diagnosis),
+  "bottleneck_insight": string (the real root cause behind the stated bottleneck and how to break it),
+  "strengths": string[] (0–4),
+  "gaps": [{ "area": string, "issue": string }] (2–5),
+  "next_steps": [{ "title": string, "why": string, "category": string, "priority": "low"|"medium"|"high", "effort": "quick"|"medium"|"big", "tool": string|null }] (3–4 quick wins for this week),
+  "roadmap": { "title": string, "goal": string, "summary": string, "phases": [{ "name": string, "focus": string, "timeframe": string }] (2–4 phases) },
+  "tasks": [{ "title": string, "details": string, "category": string, "priority": "low"|"medium"|"high", "due_in_days": integer, "tool": string|null }] (8–12, in execution order, within the timeframe)
+}
+${STEP_RULES}
+Tasks must match the budget range and content capacity (e.g. no paid ads task if budget is none; a concrete daily ad budget in local currency when there is one, e.g. "Launch a 500 EGP/day test campaign for 5 days"). Include setup tasks (e.g. Instagram bio & highlights, WhatsApp Business catalogue) only where the discovery shows they're missing.`,
+      prompt: `Diagnose the brand and build a ${HORIZONS[inputs.horizon] ?? "1 month"} roadmap.${contextBlock}`,
+      temperature: 0.45,
+      maxOutputTokens: 5000,
+      json: true,
+    };
+  }
 
   if (tool.key === "brandAnalysis") {
     return {
@@ -213,11 +300,17 @@ Return ONE JSON object with exactly these keys:
   "concepts": [ exactly 3 distinct logo directions, each { "name": string, "idea": string (the visual idea and why it fits), "logo_prompt": string (an English prompt for an AI image generator to render this logo), "svg": string } ]
 }
 
-SVG rules for each concept's "svg" (a simple vector logo mark, not a full illustration):
-- Start with <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"> and end with </svg>; under 2500 characters.
-- Use only <g>, <path>, <circle>, <rect>, <ellipse>, <polygon>, <polyline>, <line>, <text>, <defs>, <linearGradient>, <radialGradient>, <stop>.
-- Use colors from the palette. No scripts, no <style>, no external links, images or fonts; any <text> uses font-family="sans-serif".
-- Keep it centred with comfortable padding; it must read clearly at small sizes.
+SVG rules for each concept's "svg" — design like a senior identity designer, not clip-art:
+- Concept 1 = MONOGRAM: the brand's initial(s) constructed geometrically (shared strokes, ligature, or letter carved from a shape with negative space).
+  Concept 2 = SYMBOL: an abstract or reduced pictorial mark built on a grid (circles/arcs/45° angles) that encodes the brand idea.
+  Concept 3 = EMBLEM or LOCKUP: the symbol or monogram inside a refined container (circle, rounded shield, arch) or paired with the brand name.
+- Start with <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"> and end with </svg>; 1200–3500 characters.
+- Compose on the 200×200 grid: optical centre at (100,100), at least 20px padding, deliberate symmetry or balanced asymmetry, consistent stroke weight (or all solid fills), smooth curves via cubic/arc path commands with precise coordinates.
+- Use clean negative space; maximum 3 palette colors; flat fills only (one subtle linearGradient allowed).
+- Letters: prefer letterforms drawn as <path>; if using <text>, use font-family="sans-serif" font-weight="700", text-anchor="middle" dominant-baseline="central", and centre it optically.
+- FORBIDDEN: stick figures, generic clip-art icons (lightbulbs, globes, gears, generic leaves/swooshes), random overlapping primitives, photo-realism, tiny details that vanish at 32px.
+- Allowed elements only: <g>, <path>, <circle>, <rect>, <ellipse>, <polygon>, <polyline>, <line>, <text>, <defs>, <linearGradient>, <radialGradient>, <stop>. No scripts, <style>, external links, images or fonts.
+- It must read clearly at 32px and work in one color.
 The three concepts must differ meaningfully (e.g. monogram, symbol, wordmark/emblem).`,
       prompt: `Create the brand identity.\n\nBrief:\n${block([
         line("Brand name", inputs.brand),
@@ -229,8 +322,8 @@ The three concepts must differ meaningfully (e.g. monogram, symbol, wordmark/emb
         line("Color preferences", inputs.colors),
         line("Avoid", inputs.avoid),
       ])}${contextBlock}`,
-      temperature: 0.8,
-      maxOutputTokens: 5000,
+      temperature: 0.7,
+      maxOutputTokens: 7000,
       json: true,
     };
   }

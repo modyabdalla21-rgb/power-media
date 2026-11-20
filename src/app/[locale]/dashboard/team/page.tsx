@@ -57,7 +57,26 @@ export default async function TeamPage({ params }: PageProps<"/[locale]/dashboar
         ) : !members?.length ? (
           <EmptyState icon={UsersRound} title={t.noMembers} />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <ul className="divide-y divide-line md:hidden">
+            {(members as Member[]).map((m) => {
+              const self = m.id === profile.id;
+              return (
+                <li key={m.id} className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="break-words font-medium">{m.full_name ?? m.email} {self && <span className="ms-1 text-xs text-yellow">({t.you})</span>}</p>
+                      <p className="break-all text-xs text-ink-subtle" dir="ltr">{m.email}</p>
+                      <p className="mt-1 text-xs text-ink-subtle">{d.fields.joined}: {formatDate(m.created_at, locale)}</p>
+                    </div>
+                    {!self && canRemove && <ConfirmDelete action={removeMember} hidden={{ _id: m.id }} t={d.crud} title={t.removeTitle} body={t.removeBody} label={t.remove} />}
+                  </div>
+                  {self ? <StatusBadge value={m.role} label={d.roles[m.role]} /> : <RoleForm id={m.id} role={m.role} roles={roles} t={t} crud={d.crud} label={d.fields.role} />}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[680px] text-sm">
               <thead className="border-b border-line bg-white/[0.02]">
                 <tr>
@@ -91,6 +110,7 @@ export default async function TeamPage({ params }: PageProps<"/[locale]/dashboar
               </tbody>
             </table>
           </div>
+          </>
         )}
         {!canRemove && <p className="border-t border-line px-5 py-3 text-xs text-ink-subtle">{t.removeUnavailable}</p>}
       </Panel>

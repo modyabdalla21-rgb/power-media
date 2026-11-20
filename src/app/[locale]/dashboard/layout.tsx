@@ -8,6 +8,7 @@ import { isDashboardPreview, isSupabaseConfigured } from "@/lib/env";
 import { loadPage } from "@/lib/page";
 import { StatusBadge } from "@/components/dashboard/crud/status-badge";
 import { getCurrentProfile, getCurrentUser } from "@/lib/supabase/server";
+import { getClientWorkspace } from "@/lib/client/workspace";
 
 // Auth-gated: always render per request, never prerender.
 export const dynamic = "force-dynamic";
@@ -25,17 +26,19 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
   const profile = await getCurrentProfile();
   // Preview mode (no Supabase in development) shows the full admin menu.
   const role = profile?.role ?? (isDashboardPreview ? "admin" : "client");
+  // Self-serve brands get an AI-first menu without agency-run views.
+  const selfServe = role === "client" && (await getClientWorkspace())?.source === "self_serve";
   const display = profile?.full_name || profile?.email || "POWER MEDIA";
   const initials = display.replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "PM";
 
   return (
     <div className="min-h-dvh bg-surface-0">
-      <Sidebar locale={locale} t={t} tools={dict.aiTools} role={role} />
-      <div className="lg:ps-68">
+      <Sidebar locale={locale} t={t} tools={dict.aiTools} role={role} selfServe={selfServe} />
+      <div className="min-w-0 lg:ps-68">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-navy/80 px-4 backdrop-blur-xl sm:px-6">
-          <MobileSidebar locale={locale} t={t} tools={dict.aiTools} role={role} />
+          <MobileSidebar locale={locale} t={t} tools={dict.aiTools} role={role} selfServe={selfServe} />
           <p className="flex-1 truncate text-sm text-ink-subtle">{t.title}</p>
-          <LanguageSwitcher locale={locale} label={dict.nav.language} />
+          <LanguageSwitcher locale={locale} label={dict.nav.language} compact />
           {user && (
             <form action={signOut}>
               <input type="hidden" name="locale" value={locale} />
@@ -59,7 +62,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
             {t.previewBanner}
           </div>
         )}
-        <main id="main" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-10">{children}</main>
+        <main id="main" className="mx-auto min-w-0 max-w-7xl overflow-x-clip px-4 py-6 sm:px-6 sm:py-8 lg:px-10">{children}</main>
       </div>
     </div>
   );
