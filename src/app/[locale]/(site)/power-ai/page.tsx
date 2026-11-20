@@ -25,7 +25,7 @@ export default async function PowerAiPage({ params }: PageProps<"/[locale]/power
       </PageHero>
       <Section>
         <Container className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {aiTools.map((t, i) => {
+          {aiTools.filter((t) => !t.hub).map((t, i) => {
             const tool = dict.aiTools[t.key];
             return (
               <Card key={t.key} interactive className={i === 0 ? "flex flex-col lg:col-span-2" : "flex flex-col"}>

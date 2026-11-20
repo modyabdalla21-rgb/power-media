@@ -67,7 +67,7 @@ const ADMIN: readonly Role[] = ["admin"];
 const currencies = ["EGP", "SAR", "AED", "USD"] as const satisfies readonly OptionKey[];
 const markets = ["egypt", "ksa", "uae", "gcc", "other"] as const satisfies readonly OptionKey[];
 
-export type ModuleKey = "clients" | "projects" | "campaigns" | "tasks" | "reports" | "invoices" | "leads" | "generations" | "requests";
+export type ModuleKey = "clients" | "projects" | "campaigns" | "tasks" | "reports" | "invoices" | "leads" | "generations" | "requests" | "brandTasks";
 
 export const modules: Record<ModuleKey, ModuleDef> = {
   clients: {
@@ -329,6 +329,33 @@ export const modules: Record<ModuleKey, ModuleDef> = {
       { kind: "date", column: "created_at", label: "createdAt" },
     ],
     // Clients create requests from Plan / Brand pages (server actions).
+    roles: { view: STAFF, create: [], update: STAFF, delete: ADMIN },
+  },
+  brandTasks: {
+    key: "brandTasks",
+    table: "brand_tasks",
+    path: "/dashboard/brand-tasks",
+    select: "*, client:clients(name), plan:brand_plans(title)",
+    search: ["title", "details"],
+    filter: { column: "status", options: ["todo", "in_progress", "done"] },
+    order: { column: "created_at", ascending: false },
+    fields: [
+      { column: "title", label: "title", type: "text", required: true, max: 200, wide: true },
+      { column: "details", label: "details", type: "textarea", max: 2000, wide: true },
+      { column: "category", label: "category", type: "select", required: true, options: ["content", "video", "ads", "social", "brand", "website", "research", "other"], defaultValue: "other" },
+      { column: "priority", label: "priority", type: "select", required: true, options: ["low", "medium", "high"], defaultValue: "medium" },
+      { column: "status", label: "status", type: "select", required: true, options: ["todo", "in_progress", "done"], defaultValue: "todo" },
+      { column: "due_date", label: "dueDate", type: "date" },
+    ],
+    columns: [
+      { kind: "text", column: "title", label: "title", strong: true, secondary: "details" },
+      { kind: "relation", path: "client", label: "client" },
+      { kind: "relation", path: "plan", label: "plan" },
+      { kind: "option", column: "category", label: "category" },
+      { kind: "badge", column: "status", label: "status" },
+      { kind: "date", column: "due_date", label: "dueDate" },
+    ],
+    // Oversight: brands manage their own tasks in the Brand hub.
     roles: { view: STAFF, create: [], update: STAFF, delete: ADMIN },
   },
 };

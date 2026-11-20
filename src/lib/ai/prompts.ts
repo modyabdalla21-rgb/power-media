@@ -127,6 +127,65 @@ Consider local context: Snapchat's strength in KSA, WhatsApp-led conversion in E
     };
   }
 
+  const STEP_RULES = `Each task must be concrete and doable by a small business owner without an agency: one clear action with a visible output (e.g. "Film a 20-second reel showing the morning coffee ritual", not "improve social media").
+Categories: content | video | ads | social | brand | website | research | other.
+"tool" says which POWER AI tool helps execute it: "adStudio" (ad copy, posts, video scripts), "mediaPlanner" (campaign structure & budget), "brandIdentity" (logo/identity), "growthPlan" (a deeper plan) or null.
+Respect the brand's market, dialect and budget reality (Egypt/GCC). Don't invent results or numbers.`;
+
+  if (tool.key === "brandAnalysis") {
+    return {
+      system: `You are POWER AI, a senior brand strategist reviewing a small brand's current state and deciding what it needs RIGHT NOW.
+${COMMON_RULES.replace("Output clean Markdown only", "Output JSON only (no Markdown)")}
+
+${languageRule} (Applies to all human-readable values; keep enum values in English.)
+
+Return ONE JSON object:
+{
+  "readiness_score": integer 0–100 (how ready the brand is to market itself effectively; base it on the evidence given — profile completeness, identity, assets, plans, executed tasks, recent outputs),
+  "stage": "foundation" | "launch" | "growth" | "scale",
+  "summary": string (2–3 sentences, direct and specific to this brand),
+  "strengths": string[] (0–4, only if supported by the evidence),
+  "gaps": [{ "area": string, "issue": string }] (2–5, most important first),
+  "next_steps": [{ "title": string, "why": string, "category": string, "priority": "low"|"medium"|"high", "effort": "quick"|"medium"|"big", "tool": string|null }] (4–6, ordered by impact; at least one quick win)
+}
+${STEP_RULES}
+Don't repeat tasks that are already open or done in the brand's records.`,
+      prompt: `Analyse this brand and decide its next steps.${inputs.focus ? `\n\nThe owner's current focus: ${inputs.focus}` : ""}${contextBlock}`,
+      temperature: 0.4,
+      maxOutputTokens: 2500,
+      json: true,
+    };
+  }
+
+  if (tool.key === "growthPlan") {
+    const HORIZONS: Record<string, string> = { "2w": "2 weeks", "1m": "1 month", "3m": "3 months" };
+    return {
+      system: `You are POWER AI, a growth strategist turning a brand goal into an executable plan of trackable tasks.
+${COMMON_RULES.replace("Output clean Markdown only", "Output JSON only (no Markdown)")}
+
+${languageRule} (Applies to all human-readable values; keep enum values in English.)
+
+Return ONE JSON object:
+{
+  "title": string (short plan name),
+  "goal": string (the goal restated as a measurable outcome; no invented baseline numbers),
+  "summary": string (3–4 sentences: approach and why it fits this brand),
+  "tasks": [{ "title": string, "details": string (1–2 sentences: exactly what to do / produce), "category": string, "priority": "low"|"medium"|"high", "due_in_days": integer (days from today, within the timeframe, in a sensible order), "tool": string|null }] (6–10 tasks, in execution order)
+}
+${STEP_RULES}
+Include a mix of preparation, content production, publishing and measurement tasks. If an ad budget is given, include a small test campaign before scaling.`,
+      prompt: `Create the plan.\n\n${block([
+        line("Goal", inputs.goal),
+        line("Timeframe", HORIZONS[inputs.horizon] ?? inputs.horizon),
+        line("Ad budget", inputs.budget ? `${inputs.budget} ${inputs.currency ?? ""}` : ""),
+        line("Channels in use", inputs.channels),
+      ])}${contextBlock}`,
+      temperature: 0.5,
+      maxOutputTokens: 3500,
+      json: true,
+    };
+  }
+
   if (tool.key === "brandIdentity") {
     const STYLES: Record<string, string> = {
       modern_minimal: "modern, minimal, geometric, lots of negative space",

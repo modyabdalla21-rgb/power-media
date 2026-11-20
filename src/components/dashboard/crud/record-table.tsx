@@ -12,7 +12,7 @@ const opt = (options: Opts, v: unknown) => (typeof v === "string" && v in option
 
 const person = (v: unknown) => {
   const p = v as { full_name?: string | null; email?: string; name?: string } | null;
-  return p?.name ?? p?.full_name ?? p?.email ?? "—";
+  return p?.name ?? p?.full_name ?? p?.email ?? (p as { title?: string } | null)?.title ?? "—";
 };
 
 export function renderCell(col: ColumnDef, row: Row, dict: Dictionary, locale: Locale, href?: string): ReactNode {

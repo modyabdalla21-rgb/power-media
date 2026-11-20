@@ -81,7 +81,7 @@ export function SiteHeader({ locale, nav }: { locale: Locale; nav: Dictionary["n
           <Link href={localizedHref(locale, "/login")} className="inline-flex min-h-10 items-center rounded-lg px-3 text-sm font-medium text-ink-muted hover:text-white">
             {nav.login}
           </Link>
-          <LinkButton href={localizedHref(locale, "/contact")} size="sm">
+          <LinkButton href={localizedHref(locale, "/signup")} size="sm">
             {nav.getStarted}
           </LinkButton>
         </div>
@@ -118,7 +118,7 @@ export function SiteHeader({ locale, nav }: { locale: Locale; nav: Dictionary["n
             {nav.contact}
           </Link>
           <div className="mt-6 flex flex-col gap-3 border-t border-line pt-6">
-            <LinkButton href={localizedHref(locale, "/contact")} onClick={closeMenu} size="lg">{nav.getStarted}</LinkButton>
+            <LinkButton href={localizedHref(locale, "/signup")} onClick={closeMenu} size="lg">{nav.getStarted}</LinkButton>
             <LinkButton href={localizedHref(locale, "/login")} onClick={closeMenu} variant="secondary" size="lg">{nav.login}</LinkButton>
             <LanguageSwitcher locale={locale} label={nav.language} variant="inline" />
           </div>

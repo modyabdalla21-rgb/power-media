@@ -43,7 +43,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
               {hero.subtitle}
             </p>
             <div className="mt-10 flex flex-col gap-3 animate-fade-up [animation-delay:240ms] sm:flex-row">
-              <LinkButton href={href("/contact")} size="lg">
+              <LinkButton href={href("/signup")} size="lg">
                 {hero.primaryCta}
                 <ArrowRight className="flip-rtl size-4" aria-hidden />
               </LinkButton>
@@ -135,7 +135,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
             </div>
           </div>
           <ul className="grid gap-3 sm:grid-cols-2 lg:col-span-7">
-            {aiTools.map((t, i) => {
+            {aiTools.filter((t) => !t.hub).map((t, i) => {
               const tool = dict.aiTools[t.key];
               return (
                 <li key={t.key} className={i === 0 ? "sm:col-span-2" : undefined}>
@@ -242,7 +242,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
       <CtaBand
         title={home.cta.title}
         subtitle={home.cta.subtitle}
-        primary={{ label: home.cta.primary, href: href("/contact") }}
+        primary={{ label: home.cta.primary, href: href("/signup") }}
         secondary={{ label: home.cta.secondary, href: href("/pricing") }}
       />
     </>

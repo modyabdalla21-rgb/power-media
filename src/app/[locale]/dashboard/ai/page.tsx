@@ -19,7 +19,7 @@ export default async function AiHubPage({ params }: PageProps<"/[locale]/dashboa
   const t = dict.dashboard.ai;
   const profile = await getCurrentProfile();
   const isClient = profile?.role === "client";
-  const tools = aiTools.filter((tool) => !isClient || tool.access === "all");
+  const tools = aiTools.filter((tool) => !tool.hub && (!isClient || tool.access === "all"));
 
   const supabase = await createSupabaseServerClient();
   const providerReady = activeProviderIds().length > 0;

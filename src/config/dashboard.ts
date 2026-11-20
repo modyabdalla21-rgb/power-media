@@ -17,6 +17,7 @@ export const moduleIcons: Record<ModuleKey, LucideIcon> = {
   leads: Inbox,
   generations: Library,
   requests: LifeBuoy,
+  brandTasks: ListChecks,
 };
 
 type NavItem = { key: DashboardNavKey; href: string; icon: LucideIcon; roles: readonly Role[] };
@@ -30,7 +31,6 @@ export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; ite
   {
     group: "workspace",
     items: [
-      { key: "overview", href: "/dashboard", icon: LayoutDashboard, roles: CLIENT },
       { key: "brand", href: "/dashboard/brand", icon: Palette, roles: CLIENT },
       { key: "plan", href: "/dashboard/plan", icon: CreditCard, roles: CLIENT },
     ],
@@ -41,6 +41,7 @@ export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; ite
       { key: "overview", href: "/dashboard", icon: LayoutDashboard, roles: STAFF },
       mod("leads"),
       mod("requests"),
+      { key: "brandTasks", href: "/dashboard/brand-tasks", icon: ListChecks, roles: STAFF },
       mod("clients"),
       mod("projects"),
       mod("campaigns"),

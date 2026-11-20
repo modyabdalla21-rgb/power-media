@@ -20,7 +20,7 @@ export type ToolField = {
   wide?: boolean;
 };
 
-export type ToolKey = "adStudio" | "mediaPlanner" | "reportGenerator" | "brandIdentity";
+export type ToolKey = "adStudio" | "mediaPlanner" | "reportGenerator" | "brandIdentity" | "brandAnalysis" | "growthPlan";
 
 export type ToolDefinition = {
   key: ToolKey;
@@ -32,8 +32,10 @@ export type ToolDefinition = {
   titleField: string;
   /** "all": clients can use it in their workspace (counts toward their plan). */
   access: "staff" | "all";
-  /** Markdown text, or structured brand identity JSON. */
-  output: "markdown" | "identity";
+  /** Markdown text, or structured JSON (identity / brand analysis / growth plan). */
+  output: "markdown" | "identity" | "analysis" | "plan";
+  /** Run from the Brand hub, not listed as a standalone tool. */
+  hub?: boolean;
   /** Which plan quota a client generation consumes. */
   quota: "ai" | "identity";
 };
@@ -245,6 +247,61 @@ aiTools.push({
     },
   ],
 });
+
+const hubLanguages: Opt[] = [
+  { value: "en", label: { en: "English", ar: "الإنجليزية" } },
+  { value: "ar_msa", label: { en: "Arabic (Modern Standard)", ar: "العربية (الفصحى)" } },
+  { value: "ar_eg", label: { en: "Arabic — Egyptian", ar: "العربية — المصرية" } },
+  { value: "ar_gulf", label: { en: "Arabic — Gulf / Saudi", ar: "العربية — الخليجية" } },
+];
+
+aiTools.push(
+  {
+    key: "brandAnalysis",
+    slug: "brand-analysis",
+    access: "all",
+    output: "analysis",
+    quota: "ai",
+    hub: true,
+    languageField: "language",
+    titleField: "focus",
+    fields: [
+      { ...client, required: true, label: { en: "Client", ar: "العميل" } },
+      { name: "focus", type: "textarea", max: 600, label: { en: "What do you want to achieve right now? (optional)", ar: "ما الذي تريد تحقيقه الآن؟ (اختياري)" } },
+      { name: "language", type: "select", required: true, label: { en: "Language", ar: "اللغة" }, options: hubLanguages, defaultValue: "en" },
+    ],
+  },
+  {
+    key: "growthPlan",
+    slug: "growth-plan",
+    access: "all",
+    output: "plan",
+    quota: "ai",
+    hub: true,
+    languageField: "language",
+    titleField: "goal",
+    fields: [
+      { ...client, required: true, label: { en: "Client", ar: "العميل" } },
+      { name: "goal", type: "text", required: true, max: 300, label: { en: "Goal", ar: "الهدف" } },
+      {
+        name: "horizon",
+        type: "select",
+        required: true,
+        label: { en: "Timeframe", ar: "المدة" },
+        defaultValue: "1m",
+        options: [
+          { value: "2w", label: { en: "2 weeks", ar: "أسبوعان" } },
+          { value: "1m", label: { en: "1 month", ar: "شهر" } },
+          { value: "3m", label: { en: "3 months", ar: "3 أشهر" } },
+        ],
+      },
+      { name: "budget", type: "number", label: { en: "Ad budget (optional)", ar: "ميزانية الإعلانات (اختياري)" } },
+      { name: "currency", type: "select", label: { en: "Currency", ar: "العملة" }, options: currencies, defaultValue: "EGP" },
+      { name: "channels", type: "text", max: 200, label: { en: "Channels you use (optional)", ar: "القنوات التي تستخدمها (اختياري)" } },
+      { name: "language", type: "select", required: true, label: { en: "Language", ar: "اللغة" }, options: hubLanguages, defaultValue: "en" },
+    ],
+  },
+);
 
 export const getToolBySlug = (slug: string) => aiTools.find((t) => t.slug === slug);
 export const getToolByKey = (key: string) => aiTools.find((t) => t.key === key);

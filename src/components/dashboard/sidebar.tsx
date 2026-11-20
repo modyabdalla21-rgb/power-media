@@ -46,7 +46,7 @@ function NavContent({ locale, t, tools, role, onNavigate }: NavProps) {
                   </Link>
                   {item.key === "aiHub" && (
                     <ul className="mt-1 space-y-0.5 border-s border-line ms-5 ps-2">
-                      {aiTools.filter((tool) => role !== "client" || tool.access === "all").map((tool) => {
+                      {aiTools.filter((tool) => !tool.hub && (role !== "client" || tool.access === "all")).map((tool) => {
                         const href = `/dashboard/ai/${tool.slug}`;
                         const Icon = toolIcons[tool.key];
                         const a = isActive(href);

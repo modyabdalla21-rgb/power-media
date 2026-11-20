@@ -62,7 +62,7 @@ In development, if Supabase isn't configured, the dashboard opens in **preview m
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `sb_publishable_…` key (a legacy anon JWT also works)
    - `SUPABASE_SERVICE_ROLE_KEY`: the `sb_secret_…` key, server only. It's needed to send team invite emails and to remove members.
-2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, `0002_power_ai.sql`, `0003_client_self_serve.sql`, then `0004_brand_assets_projects.sql`. Each script is idempotent, so it's safe to run again.
+2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, `0002_power_ai.sql`, `0003_client_self_serve.sql`, `0004_brand_assets_projects.sql`, then `0005_brand_hub.sql`. Each script is idempotent, so it's safe to run again.
 3. **Make yourself admin**: sign up on the site, confirm your email, then run:
    ```sql
    update public.profiles set role = 'admin' where email = 'you@example.com';
@@ -119,6 +119,18 @@ Three tools live at `/[locale]/dashboard/ai`. They're for staff (`admin` and `te
 - **AI Logo & Brand Identity:** `/dashboard/ai/brand-identity` returns structured JSON with positioning, palette, typography, voice and three SVG logo concepts. Any concept can be applied as the active kit. SVGs are sanitised against an allow-list and only ever rendered through `<img>` data URIs.
 - **Plans:** `clients.plan_tier` (`free` / `growth` / `pro`), with limits in `src/config/plans.ts`. Usage is counted monthly from `ai_generations` and enforced before any AI call. At the limit, an upgrade modal creates a `client_requests` row. Staff handle requests in **Client requests** and change the tier in **Clients**. There's no payment gateway yet.
 - **Access:** clients can edit only their own workspace's brand fields (a trigger protects plan, status, retainer and notes), plus their own brand kits, generations and requests.
+
+## Brand hub (AI-first core workflow)
+
+`/[locale]/dashboard/brand` is the client's home. After onboarding, clients land there instead of the overview. It holds:
+
+1. **Readiness:** a checklist computed without AI (profile, identity, logo, references, analysis, plan, completed task), with one-click fixes.
+2. **AI Brand Analysis** (`brandAnalysis` tool): a JSON readiness score, stage, strengths, gaps and 4–6 concrete next steps. It reads the brand profile, active kit, assets, plans, tasks and recent AI outputs, so it doesn't repeat finished work. Each step can be added as a task or run with the matching AI tool through a `?brief=` prefill.
+3. **AI Growth Plans** (`growthPlan` tool): turn a goal and timeframe into a `brand_plans` row with 6–10 dated `brand_tasks`, with progress tracked per plan.
+4. **Tasks:** add, start, complete, delete, and filter by status, plan or category.
+5. **Identity, assets and profile.** Human help is a single secondary link.
+
+AI runs only when the user clicks, and each run counts toward the monthly AI quota (an upgrade modal appears at the limit). Brand plans and tasks are visible to their own brand. Staff get read oversight (**Brand tasks**), team can update and only admins can delete.
 
 ## Brand assets & decision-ready projects
 

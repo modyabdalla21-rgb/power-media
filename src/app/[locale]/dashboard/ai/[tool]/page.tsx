@@ -31,6 +31,8 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
   const profile = await getCurrentProfile();
   const isClient = profile?.role === "client";
   if (isClient && tool.access !== "all") redirect(localizedHref(locale, "/dashboard/ai"));
+  // Analysis & plans run from the Brand hub.
+  if (tool.hub || tool.output === "analysis" || tool.output === "plan") redirect(localizedHref(locale, isClient ? "/dashboard/brand" : "/dashboard/brand-tasks"));
   const meta = dict.aiTools[tool.key];
   const cl = contentLocale(locale);
   const t = dict.dashboard.ai;
@@ -57,6 +59,9 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
 
   // Prefill from the client's brand profile.
   const linkedProject = projectOptions.find((o) => o.value === requestedProject);
+  // "Do it with AI" from a Brand hub task/step pre-fills the brief.
+  const brief = typeof sp.brief === "string" ? sp.brief.slice(0, 300) : "";
+  const briefField = ({ adStudio: "message", mediaPlanner: "offer" } as Record<string, string>)[tool.key];
   const prefill: Record<string, string | null | undefined> = workspace
     ? {
         brand: workspace.name,
@@ -77,7 +82,7 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
     .map((f) => {
       const options = f.type === "client" ? clientOptions : f.type === "project" ? projectOptions : (f.options ?? []).map((o) => ({ value: o.value, label: o.label[cl] }));
       const pre =
-        f.type === "project" ? linkedProject?.value : f.type === "client" ? linkedProject?.clientId : prefill[f.name];
+        f.type === "project" ? linkedProject?.value : f.type === "client" ? linkedProject?.clientId : brief && f.name === briefField ? brief : prefill[f.name];
       const usable = pre && (f.type !== "select" || options.some((o) => o.value === pre));
       return {
         name: f.name,
@@ -112,7 +117,7 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
         d={dict.dashboard}
         libraryHref={localizedHref(locale, "/dashboard/ai/history")}
         languageField={tool.languageField}
-        mode={tool.output}
+        mode={tool.output === "identity" ? "identity" : "markdown"}
         brandNote={brandNote}
         brandHref={isClient ? localizedHref(locale, "/dashboard/brand") : undefined}
         canApply={tool.output === "identity"}

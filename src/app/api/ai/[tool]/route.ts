@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { loadContext } from "@/lib/ai/context";
-import { identityToMarkdown, parseIdentity, type BrandIdentity } from "@/lib/ai/identity";
+import { loadBrandState } from "@/lib/ai/brand-state";
+import { identityToMarkdown, parseIdentity } from "@/lib/ai/identity";
+import { analysisToMarkdown, parseAnalysis, parsePlan, planToMarkdown, type GrowthPlan } from "@/lib/ai/structured";
 import { buildPrompt } from "@/lib/ai/prompts";
 import { GENERATION_DEADLINE_MS, generateText } from "@/lib/ai/provider";
 import { getToolBySlug, type ToolDefinition } from "@/lib/ai/tools";
@@ -129,6 +131,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       supabase.from("brand_assets").select("kind, file_name, caption").eq("client_id", values.client_id).order("created_at", { ascending: false }).limit(10),
     ]);
     brandContext = brandContextText(brand, kit, assets ?? []);
+    // Analyser & planner also see what the brand has already done.
+    if (tool.output === "analysis" || tool.output === "plan") brandContext += `\n\n${await loadBrandState(supabase, values.client_id)}`;
     brandKitName = kit?.name ?? null;
   }
   const context = [brandContext, ctxData.text].filter(Boolean).join("\n\n");
@@ -138,23 +142,32 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
     const started = Date.now();
     let result = await generateText(spec);
 
-    let identity: BrandIdentity | null = null;
-    if (tool.output === "identity") {
-      identity = parseIdentity(result.text);
-      // One retry for malformed JSON — only if it fits in the function's time limit.
+    // Structured tools: parse + validate JSON, with one bounded retry.
+    const parsers = {
+      identity: (t: string) => { const v = parseIdentity(t); return v && { data: v, md: identityToMarkdown(v) }; },
+      analysis: (t: string) => { const v = parseAnalysis(t); return v && { data: v, md: analysisToMarkdown(v) }; },
+      plan: (t: string) => { const v = parsePlan(t); return v && { data: v, md: planToMarkdown(v) }; },
+    } as const;
+    let structured: { data: unknown; md: string } | null = null;
+    if (tool.output !== "markdown") {
+      const parse = parsers[tool.output];
+      structured = parse(result.text);
       const left = GENERATION_DEADLINE_MS - (Date.now() - started) - 3_000;
-      if (!identity && left > 12_000) {
+      if (!structured && left > 12_000) {
         result = await generateText(spec, left);
-        identity = parseIdentity(result.text);
+        structured = parse(result.text);
       }
-      if (!identity) throw new AiError("badRequest", "identity output could not be parsed");
+      if (!structured) throw new AiError("badRequest", `${tool.output} output could not be parsed`);
     }
-    const outputText = identity ? identityToMarkdown(identity) : result.text;
+    const identity = tool.output === "identity" ? structured?.data ?? null : null;
+    const outputText = structured ? structured.md : result.text;
 
     const subject =
       tool.key === "reportGenerator"
         ? `${"clientName" in ctxData ? ctxData.clientName : ""} · ${values.period_start} → ${values.period_end}`
-        : values[tool.titleField] ?? "";
+        : tool.output === "analysis"
+          ? `${"clientName" in ctxData && ctxData.clientName ? ctxData.clientName : "Brand"} · ${new Date().toISOString().slice(0, 10)}`
+          : values[tool.titleField] ?? "";
     const title = subject.trim().slice(0, 180) || tool.key;
 
     let id: string | null = null;
@@ -167,7 +180,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
           title,
           inputs: values,
           output: outputText.slice(0, 100_000),
-          data: identity,
+          data: structured?.data ?? null,
           provider: result.provider,
           model: result.model,
           language: values[tool.languageField] ?? null,
@@ -183,6 +196,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       id = data?.id ?? null;
     }
 
+    // Growth plan → a trackable plan with dated tasks.
+    let planId: string | null = null;
+    if (tool.output === "plan" && structured && supabase && values.client_id) {
+      planId = await createPlanWithTasks(supabase, values.client_id, structured.data as GrowthPlan, values, id);
+    }
+
     return json({
       text: outputText,
       identity,
@@ -192,6 +211,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       model: result.model,
       language: values[tool.languageField] ?? "en",
       brandKit: brandKitName,
+      analysis: tool.output === "analysis" ? structured?.data : undefined,
+      planId,
     });
   } catch (err) {
     const e = err instanceof AiError ? err : new AiError("unknown", String(err));
@@ -206,4 +227,40 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
     // Only the normalised code (and a retry hint) reaches the browser.
     return json({ code: e.code, retryAfter: e.retryAfterSec }, status);
   }
+}
+
+async function createPlanWithTasks(
+  supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>,
+  clientId: string,
+  plan: GrowthPlan,
+  values: Record<string, string>,
+  generationId: string | null,
+) {
+  const horizon = ["2w", "1m", "3m"].includes(values.horizon) ? values.horizon : "1m";
+  const { data: row, error } = await supabase
+    .from("brand_plans")
+    .insert({ client_id: clientId, title: plan.title, goal: plan.goal, summary: plan.summary, horizon, source: "ai", generation_id: generationId })
+    .select("id")
+    .single();
+  if (error || !row) {
+    console.error("[ai] plan save failed", error?.code, error?.message);
+    return null;
+  }
+  const today = Date.now();
+  const { error: taskError } = await supabase.from("brand_tasks").insert(
+    plan.tasks.map((t, i) => ({
+      client_id: clientId,
+      plan_id: row.id,
+      title: t.title,
+      details: t.details || null,
+      category: t.category,
+      priority: t.priority,
+      due_date: new Date(today + t.due_in_days * 86_400_000).toISOString().slice(0, 10),
+      tool_hint: t.tool,
+      source: "ai",
+      sort_order: i,
+    })),
+  );
+  if (taskError) console.error("[ai] plan tasks save failed", taskError.code, taskError.message);
+  return row.id as string;
 }

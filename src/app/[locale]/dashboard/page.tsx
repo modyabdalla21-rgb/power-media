@@ -46,6 +46,8 @@ export default async function DashboardOverview({ params, searchParams }: PagePr
   // Self-serve clients: workspace is provisioned on first visit; brand setup comes first.
   const workspace = profile.role === "client" ? await getClientWorkspace() : null;
   if (workspace && !workspace.onboarded_at) redirect(localizedHref(locale, "/dashboard/onboarding"));
+  // AI-first: the Brand hub is the client's home.
+  if (workspace) redirect(localizedHref(locale, sp.notice === "password" ? "/dashboard/brand?notice=password" : "/dashboard/brand"));
 
   return (
     <div className="space-y-8">
@@ -177,7 +179,7 @@ async function StaffOverview({ supabase, dict, locale, profile }: { supabase: Su
       </div>
       <Panel title={t.ai.hubTitle} actions={<Link href={localizedHref(locale, "/dashboard/ai")} className="text-xs font-medium text-blue-300 hover:text-white">{dict.common.viewAll}</Link>}>
         <ul className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
-          {aiTools.slice(0, 4).map((tool) => (
+          {aiTools.filter((tool) => !tool.hub).slice(0, 4).map((tool) => (
             <li key={tool.key} className="bg-surface-1">
               <Link href={localizedHref(locale, `/dashboard/ai/${tool.slug}`)} className="flex items-center gap-3 p-4 transition-colors hover:bg-white/[0.03]">
                 <IconTile icon={toolIcons[tool.key]} className="size-9" />
@@ -249,7 +251,7 @@ async function WorkspaceSummary({ supabase, dict, locale, workspace, userId }: {
   const d = dict.dashboard;
   const [kit, usage] = await Promise.all([getActiveBrandKit(supabase, workspace.id), getUsage(supabase, userId, workspace)]);
   const logo = await resolveKitLogo(supabase, kit);
-  const clientTools = aiTools.filter((tool) => tool.access === "all");
+  const clientTools = aiTools.filter((tool) => tool.access === "all" && !tool.hub);
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Link href={localizedHref(locale, "/dashboard/brand")} className="surface-card ring-glow-hover flex items-center gap-4 p-5">
