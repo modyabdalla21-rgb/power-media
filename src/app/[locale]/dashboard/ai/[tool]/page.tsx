@@ -111,7 +111,7 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
     <div className="space-y-8">
       <div className="flex items-start gap-4">
         <IconTile icon={toolIcons[tool.key]} tone="energy" className="mt-1 hidden sm:inline-flex" />
-        <div className="flex-1"><PageHeader title={tool.output === "identity" ? dict.dashboard.identity.title : meta.name} description={tool.output === "identity" ? dict.dashboard.identity.subtitle : meta.description} /></div>
+        <div className="min-w-0 flex-1"><PageHeader title={tool.output === "identity" ? dict.dashboard.identity.title : meta.name} description={tool.output === "identity" ? dict.dashboard.identity.subtitle : meta.description} /></div>
       </div>
       <ToolWorkspace
         slug={tool.slug}

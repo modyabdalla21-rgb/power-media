@@ -177,7 +177,7 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
 
   return (
     <div className="grid gap-6 xl:grid-cols-5">
-      <form onSubmit={onSubmit} className="surface-card space-y-5 p-6 xl:col-span-2 xl:self-start" noValidate>
+      <form onSubmit={onSubmit} className="surface-card min-w-0 space-y-5 p-4 sm:p-6 xl:col-span-2 xl:self-start" noValidate>
         <h2 className="text-sm font-semibold">{t.inputTitle}</h2>
         {brandNote && (
           <p className={brandNote.warn ? "flex items-start gap-2 rounded-lg border border-orange/30 bg-orange/10 p-2.5 text-xs text-yellow" : "flex items-start gap-2 rounded-lg border border-blue/25 bg-blue/10 p-2.5 text-xs text-blue-300"}>
@@ -205,11 +205,11 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
         </Button>
       </form>
 
-      <section ref={outputRef} className="surface-card flex min-h-[28rem] scroll-mt-24 flex-col xl:sticky xl:top-24 xl:col-span-3 xl:max-h-[calc(100dvh-7.5rem)] xl:self-start xl:overflow-y-auto" aria-live="polite" aria-busy={loading}>
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-6 py-4">
+      <section ref={outputRef} className="surface-card flex min-h-[28rem] min-w-0 scroll-mt-24 flex-col xl:sticky xl:top-24 xl:col-span-3 xl:max-h-[calc(100dvh-7.5rem)] xl:self-start xl:overflow-y-auto" aria-live="polite" aria-busy={loading}>
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-4 sm:px-6">
           <h2 className="text-sm font-semibold">{t.outputTitle}</h2>
           {state.kind === "done" && (
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-1">
               {state.id && (
                 <Link href={`${libraryHref}/${state.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm text-ink-muted hover:bg-white/5 hover:text-white">
                   <ExternalLink className="flip-rtl size-4" aria-hidden />
@@ -223,7 +223,7 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
             </div>
           )}
         </header>
-        <div className="flex flex-1 flex-col p-6">
+        <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-6">
           {state.kind === "idle" && <p className="m-auto max-w-xs text-center text-sm text-ink-subtle">{t.outputEmpty}</p>}
           {loading && (
             <div className="space-y-4">

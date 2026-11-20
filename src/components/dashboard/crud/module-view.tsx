@@ -9,7 +9,7 @@ import { RecordCards } from "@/components/dashboard/crud/record-cards";
 import { ModuleToolbar } from "@/components/dashboard/crud/toolbar";
 import type { ClientField, RecordValues } from "@/components/dashboard/crud/types";
 import { AGENCY_PORTAL_MODULES, moduleIcons } from "@/config/dashboard";
-import { getClientWorkspace } from "@/lib/client/workspace";
+import { hasAgencyWork } from "@/lib/client/workspace";
 import { can, columnsForRole, fieldsForRole, modulePath, type ModuleDef, type RelationSource, type Role } from "@/config/modules";
 import { localizedHref, type Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/dictionaries/en";
@@ -78,7 +78,7 @@ export async function ModuleView({ def, locale, dict, searchParams }: {
     );
   }
   if (!can(profile.role, def.roles.view)) redirect(localizedHref(locale, "/dashboard"));
-  if (profile.role === "client" && (AGENCY_PORTAL_MODULES as readonly string[]).includes(def.key) && (await getClientWorkspace())?.source === "self_serve") {
+  if (profile.role === "client" && (AGENCY_PORTAL_MODULES as readonly string[]).includes(def.key) && !(await hasAgencyWork())) {
     redirect(localizedHref(locale, "/dashboard/brand"));
   }
 

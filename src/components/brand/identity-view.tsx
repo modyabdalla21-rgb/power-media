@@ -24,7 +24,7 @@ export function IdentityConceptsView({ identity, d, generationId, canApply, bran
       </header>
       <section>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-subtle">{b.palette}</h4>
-        <PaletteSwatches palette={identity.palette} />
+        <PaletteSwatches palette={identity.palette} roles={b.colorRoles} />
       </section>
       <div className="grid gap-6 sm:grid-cols-2">
         <section>

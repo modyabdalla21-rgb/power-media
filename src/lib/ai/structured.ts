@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { enumLabel, outputDialect } from "./polish";
 
 /**
  * Structured AI outputs for the Brand hub: brand analysis and growth plan.
@@ -110,9 +111,9 @@ export const parseAnalysis = (text: string) => parseWith(analysisSchema, text, "
 export const parsePlan = (text: string) => parseWith(planSchema, text, "plan");
 export const parseDiagnosis = (text: string) => parseWith(diagnosisSchema, text, "diagnosis");
 
-export function diagnosisToMarkdown(d: GrowthDiagnosis) {
+export function diagnosisToMarkdown(d: GrowthDiagnosis, lang?: string | null) {
   return [
-    analysisToMarkdown(d),
+    analysisToMarkdown(d, lang),
     "",
     ...(d.bottleneck_insight ? ["## Bottleneck", d.bottleneck_insight, ""] : []),
     `## Roadmap — ${d.roadmap.title}`,
@@ -122,13 +123,14 @@ export function diagnosisToMarkdown(d: GrowthDiagnosis) {
     "",
     ...d.roadmap.phases.map((p, i) => `${i + 1}. **${p.name}**${p.timeframe ? ` (${p.timeframe})` : ""} — ${p.focus}`),
     "",
-    planToMarkdown({ title: "Tasks", goal: d.roadmap.goal, summary: "", tasks: d.tasks }).split("\n").slice(5).join("\n"),
+    planToMarkdown({ title: "Tasks", goal: d.roadmap.goal, summary: "", tasks: d.tasks }, lang).split("\n").slice(5).join("\n"),
   ].join("\n");
 }
 
-export function analysisToMarkdown(a: BrandAnalysis) {
+export function analysisToMarkdown(a: BrandAnalysis, lang?: string | null) {
+  const e = (v: string) => enumLabel(v, outputDialect(lang));
   return [
-    `# Brand analysis — ${a.readiness_score}/100 (${a.stage})`,
+    `# Brand analysis — ${a.readiness_score}/100 (${e(a.stage)})`,
     "",
     a.summary,
     "",
@@ -137,11 +139,12 @@ export function analysisToMarkdown(a: BrandAnalysis) {
     ...a.gaps.map((g) => `- **${g.area}:** ${g.issue}`),
     "",
     "## Next steps",
-    ...a.next_steps.map((s, i) => `${i + 1}. **${s.title}** (${s.priority}, ${s.effort})${s.why ? ` — ${s.why}` : ""}`),
+    ...a.next_steps.map((s, i) => `${i + 1}. **${s.title}** (${e(s.priority)}, ${e(s.effort)})${s.why ? ` — ${s.why}` : ""}`),
   ].join("\n");
 }
 
-export function planToMarkdown(p: GrowthPlan) {
+export function planToMarkdown(p: GrowthPlan, lang?: string | null) {
+  const e = (v: string) => enumLabel(v, outputDialect(lang));
   return [
     `# ${p.title}`,
     "",
@@ -152,6 +155,6 @@ export function planToMarkdown(p: GrowthPlan) {
     "## Tasks",
     "| # | Task | Category | Priority | Due (days) |",
     "|---|---|---|---|---|",
-    ...p.tasks.map((t, i) => `| ${i + 1} | ${t.title}${t.details ? ` — ${t.details}` : ""} | ${t.category} | ${t.priority} | ${t.due_in_days} |`),
+    ...p.tasks.map((t, i) => `| ${i + 1} | ${t.title}${t.details ? ` — ${t.details}` : ""} | ${e(t.category)} | ${e(t.priority)} | ${t.due_in_days} |`),
   ].join("\n");
 }

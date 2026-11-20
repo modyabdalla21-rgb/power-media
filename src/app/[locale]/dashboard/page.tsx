@@ -162,7 +162,7 @@ async function StaffOverview({ supabase, dict, locale, profile }: { supabase: Su
                   const overdue = task.due_date && task.due_date < today;
                   return (
                     <li key={task.id} className="px-5 py-3 text-sm">
-                      <p className="truncate font-medium">{task.title}</p>
+                      <p className="break-words font-medium" dir="auto">{task.title}</p>
                       <p className={overdue ? "text-xs text-yellow" : "text-xs text-ink-subtle"}>
                         {formatDate(task.due_date, locale)} · {opts[task.priority as keyof typeof opts]}
                         {(task.project as unknown as { name: string } | null)?.name ? ` · ${(task.project as unknown as { name: string }).name}` : ""}
@@ -258,7 +258,7 @@ async function WorkspaceSummary({ supabase, dict, locale, workspace, userId }: {
         <SvgLogo svg={logo.svg} url={logo.url} alt={kit?.name ?? workspace.name} className="size-16 shrink-0" />
         <div className="min-w-0">
           <p className="text-xs text-ink-subtle">{d.brand.kitTitle}</p>
-          <p className="truncate font-semibold">{kit?.name ?? workspace.name}</p>
+          <p className="break-words font-semibold" dir="auto">{kit?.name ?? workspace.name}</p>
           {kit ? (
             <div className="mt-1.5 flex gap-1" aria-hidden>{kit.palette?.slice(0, 5).map((c, i) => <span key={i} className="size-3.5 rounded-full border border-line" style={{ backgroundColor: c.hex }} />)}</div>
           ) : (

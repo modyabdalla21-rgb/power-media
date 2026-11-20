@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Eye, Lock } from "lucide-react";
 import { CopyButton } from "@/components/ai/copy-button";
 import { Markdown } from "@/components/ai/markdown";
+import { polishOutput } from "@/lib/ai/polish";
 import { IdentityConceptsView } from "@/components/brand/identity-view";
 import type { BrandIdentity } from "@/lib/ai/identity";
 import { clientFields } from "@/components/dashboard/crud/module-view";
@@ -98,7 +99,7 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
           {g.tool === "brandIdentity" && g.data?.concepts ? (
             <IdentityConceptsView identity={g.data} d={dict.dashboard} generationId={g.id} canApply={canApply} brandHref={profile.role === "client" ? localizedHref(locale, "/dashboard/brand") : undefined} dir={dir} />
           ) : (
-            <Markdown text={g.output ?? ""} dir={dir} />
+            <Markdown text={polishOutput(g.output ?? "", g.language)} dir={dir} />
           )}
           {isStaff && <p className="mt-8 border-t border-line pt-4 text-xs text-ink-subtle">{t.disclaimer}</p>}
         </article>
@@ -118,7 +119,7 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between gap-3">
                     <dt className="text-ink-subtle">{k}</dt>
-                    <dd className="truncate text-end text-ink-muted" dir="auto">{v}</dd>
+                    <dd className="min-w-0 break-words text-end text-ink-muted" dir="auto">{v}</dd>
                   </div>
                 ))}
               </dl>

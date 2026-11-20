@@ -187,4 +187,20 @@
   .ai-prose hr { margin: 1.25rem 0; border-color: var(--color-line); }
   .ai-prose th { padding: 0.55rem 0.75rem; background: rgb(255 255 255 / 0.03); text-align: start; font-weight: 600; color: var(--color-ink-muted); border-bottom: 1px solid var(--color-line); }
   .ai-prose td { padding: 0.55rem 0.75rem; vertical-align: top; border-top: 1px solid var(--color-line); }
+  /* Long words, URLs and unbroken strings wrap instead of overflowing. */
+  .ai-prose { overflow-wrap: anywhere; }
+  .ai-prose pre { max-width: 100%; overflow-x: auto; white-space: pre-wrap; padding: 0.75rem; border-radius: 0.6rem; background: rgb(255 255 255 / 0.04); }
+  .ai-prose pre code { padding: 0; background: none; }
+  .ai-prose img { max-width: 100%; height: auto; }
+  /* Small screens: each table row becomes a labelled card (labels come from data-label). */
+  @media (max-width: 639.98px) {
+    .ai-prose .ai-table { overflow: hidden; }
+    .ai-prose .ai-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .ai-prose .ai-table table, .ai-prose .ai-table tbody, .ai-prose .ai-table tr, .ai-prose .ai-table td { display: block; width: 100%; }
+    .ai-prose .ai-table tr { padding: 0.35rem 0; }
+    .ai-prose .ai-table tbody tr + tr { border-top: 1px solid var(--color-line); }
+    .ai-prose .ai-table td { border-top: 0; padding: 0.3rem 0.85rem; }
+    .ai-prose .ai-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 0.1rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em; color: var(--color-ink-subtle); }
+    .ai-prose .ai-table td:first-child { font-weight: 600; color: #fff; }
+  }
 }

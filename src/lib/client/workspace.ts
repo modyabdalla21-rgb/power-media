@@ -74,6 +74,27 @@ export const getClientWorkspace = cache(async (): Promise<Workspace | null> => {
   return { ...(data as Workspace), plan_tier: isPlanTier(data.plan_tier) ? data.plan_tier : "free" };
 });
 
+/**
+ * Whether the agency actually runs work for this client (projects, campaigns,
+ * published reports or issued invoices). Clients without any only see their
+ * AI brand-growth workspace; agency views appear once there is real data.
+ */
+export const hasAgencyWork = cache(async (): Promise<boolean> => {
+  const ws = await getClientWorkspace();
+  const supabase = await createSupabaseServerClient();
+  if (!ws || !supabase || ws.source !== "agency") return false;
+  const profile = await getCurrentProfile();
+  const head = { count: "exact" as const, head: true };
+  const [projects, campaigns, reports, invoices] = await Promise.all([
+    // Projects the client opened themselves don't count as agency work.
+    supabase.from("projects").select("id", head).eq("client_id", ws.id).or(`created_by.is.null,created_by.neq.${profile?.id ?? "00000000-0000-0000-0000-000000000000"}`),
+    supabase.from("campaigns").select("id", head).eq("client_id", ws.id),
+    supabase.from("reports").select("id", head).eq("client_id", ws.id).neq("status", "draft"),
+    supabase.from("invoices").select("id", head).eq("client_id", ws.id).neq("status", "draft"),
+  ]);
+  return [projects, campaigns, reports, invoices].some((r) => (r.count ?? 0) > 0);
+});
+
 export async function getActiveBrandKit(supabase: SupabaseClient, clientId: string): Promise<BrandKit | null> {
   const { data } = await supabase.from("brand_kits").select(BRAND_KIT_COLUMNS).eq("client_id", clientId).eq("is_active", true).maybeSingle();
   return (data as BrandKit | null) ?? null;

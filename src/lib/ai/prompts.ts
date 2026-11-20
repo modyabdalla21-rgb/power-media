@@ -1,4 +1,5 @@
 import "server-only";
+import { headingGlossaryPrompt } from "./polish";
 import { isArabicOutput, type ToolDefinition } from "./tools";
 
 /** Writing guidance per output language / dialect. */
@@ -16,7 +17,7 @@ const COMMON_RULES = `
 Rules you must always follow:
 - You are POWER AI, the in-house assistant of POWER MEDIA, a premium digital marketing agency serving Egypt, Saudi Arabia, the UAE and the GCC.
 - Output clean Markdown only: "##" section headings, short paragraphs, bullet lists and Markdown tables where useful. No preamble, no closing chit-chat.
-- Never invent facts, statistics, prices, testimonials, awards, client names or performance results. If a needed fact is missing, write a clearly marked placeholder like [add price] or state the assumption.
+- Never invent facts, statistics, prices, testimonials, awards, client names or performance results. If a needed fact is missing, never use square-bracket placeholders like [add price] or [...]: write a short natural note in the output language instead (e.g. "add your real price here" / «اكتب سعرك الحقيقي هنا») or state the assumption.
 - Avoid unverifiable superlatives ("#1", "best in Egypt") and anything that breaks Meta, TikTok, Snapchat or Google ad policies (e.g. personal-attribute targeting language, misleading claims, before/after health claims).
 - Be culturally appropriate for Egyptian and Gulf audiences (family values, modesty, Ramadan/Eid sensitivities).
 - Keep brand and product names exactly as given (Latin script is fine inside Arabic text). Use Western digits (0-9).
@@ -30,7 +31,7 @@ const FORMAT_GUIDE: Record<string, string> = {
 - **Description** (≤30 characters)
 - **CTA button** (one of: Shop Now, Learn More, Sign Up, Contact Us, Book Now, Get Offer, Send WhatsApp Message)
 - **Creative direction** (visual / first frame idea)
-Use a different persuasion angle per variation (e.g. pain point, social proof placeholder, offer/urgency, aspiration).`,
+Use a different persuasion angle per variation (e.g. pain point, social proof (only proof the brand really has), offer/urgency, aspiration).`,
   tiktok_ad: `Format: TikTok ads. For each variation provide a "### Variation N — <angle>" heading with:
 - **Hook (0–3s)**: spoken line + on-screen text
 - **Script beats**: a Markdown table with columns Time | Visual | Voiceover / dialogue | On-screen text (15–30s total)
@@ -75,6 +76,18 @@ Mix formats (at least 3 Reels), include one engagement post (poll/question), one
 Then "## Production batch plan": how to film/create all 7 in 1–2 sessions.
 Then "## Reels scripts": full short scripts (hook + 4–6 beats + CTA) for the 3 Reels in the calendar.`;
 
+const COMMON_AD_TERMS = ["Hook", "CTA", "Notes"];
+/** Structure names per ad format (for Arabic heading glossaries). */
+const AD_TERMS: Record<string, string[]> = {
+  meta_ad: ["Variation", "Primary text", "Headline", "Description", "CTA button", "Creative direction", ...COMMON_AD_TERMS],
+  tiktok_ad: ["Variation", "Script beats", "Time", "Visual", "Voiceover / dialogue", "On-screen text", "Ad text", "Sound", ...COMMON_AD_TERMS],
+  google_search_ad: ["Headlines", "Descriptions", "Sitelinks", "Keyword themes", "Negative keywords", "Notes"],
+  social_post: ["Post", "Caption", "Hashtags", "Visual direction", "Suggested format", "Notes"],
+  video_script: ["Script", "Title / concept", "Time", "Scene / visual", "Voiceover or dialogue", "On-screen text", "Production notes", ...COMMON_AD_TERMS],
+  reels_shoot: ["Script", "Concept & angle", "Time", "Shot / visual", "Spoken script", "On-screen text", "Caption", "Hashtags", "Shooting checklist", "Editing notes", ...COMMON_AD_TERMS],
+  content_calendar: ["Content pillars", "Pillar", "7-day calendar", "Day", "Format", "Content outline", "Caption", "Best time to post", "Production batch plan", "Reels scripts", ...COMMON_AD_TERMS],
+};
+
 const FRAMEWORKS: Record<string, string> = {
   auto: "Pick the best-fitting framework per variation (Hook-Story-Offer, PAS, AIDA or Before-After-Bridge) and label it.",
   hso: "Use Hook → Story → Offer: a scroll-stopping hook, a short relatable story (customer or founder), then a clear offer with urgency.",
@@ -105,12 +118,13 @@ export function buildPrompt(tool: ToolDefinition, inputs: Record<string, string>
   const languageRule = `Language: ${LANGUAGE_GUIDE[lang] ?? LANGUAGE_GUIDE.en}${
     isArabicOutput(lang) ? " Section headings must also be in Arabic." : ""
   }`;
+  const glossary = (terms: string[]) => headingGlossaryPrompt(lang, terms);
   const contextBlock = context ? `\n\nAgency records (factual — rely on these, do not contradict them):\n${context}` : "";
 
   if (tool.key === "adStudio") {
     const n = inputs.format === "content_calendar" ? 1 : Math.min(5, Math.max(1, Number(inputs.variations) || 3));
     return {
-      system: `You are a senior direct-response copywriter and short-form video strategist at POWER MEDIA, specialised in MENA performance marketing (Egypt & GCC).\n${COMMON_RULES}\n- Write like the best local creators: specific, sensory, conversational; no corporate filler. Every hook must create curiosity, call out the audience or promise a concrete outcome within the first 2 seconds.\n- Stay consistent with the brand profile & brand kit in the records (tone, personality, colors for visual direction).\n\n${languageRule}\n\nFramework: ${FRAMEWORKS[inputs.framework] ?? FRAMEWORKS.auto}\n\n${FORMAT_GUIDE[inputs.format] ?? FORMAT_GUIDE.meta_ad}\n\nFinish with a short "## Notes" section listing assumptions and what to A/B test first.`,
+      system: `You are a senior direct-response copywriter and short-form video strategist at POWER MEDIA, specialised in MENA performance marketing (Egypt & GCC).\n${COMMON_RULES}\n- Write like the best local creators: specific, sensory, conversational; no corporate filler. Every hook must create curiosity, call out the audience or promise a concrete outcome within the first 2 seconds.\n- Stay consistent with the brand profile & brand kit in the records (tone, personality, colors for visual direction).\n\n${languageRule}\n\nFramework: ${FRAMEWORKS[inputs.framework] ?? FRAMEWORKS.auto}\n\n${FORMAT_GUIDE[inputs.format] ?? FORMAT_GUIDE.meta_ad}\n\nFinish with a short "## Notes" section listing assumptions and what to A/B test first.${glossary(AD_TERMS[inputs.format] ?? AD_TERMS.meta_ad)}`,
       prompt: `Write ${n} variation(s).\n\nBrief:\n${block([
         line("Product / offer", inputs.offer),
         line("Brand", inputs.brand),
@@ -137,7 +151,7 @@ Structure the plan with these sections:
 ## Testing plan — 3–5 bullets: what to test first, success criteria, decision rules.
 ## Tracking checklist — short bullets: Pixel / Conversions API, GA4, UTMs, WhatsApp click tracking as relevant.
 ## Risks & assumptions — 3–5 bullets.
-Consider local context: Snapchat's strength in KSA, WhatsApp-led conversion in Egypt and the GCC, seasonality (Ramadan, Eid, White Friday, national days), Arabic vs English creative.`,
+Consider local context: Snapchat's strength in KSA, WhatsApp-led conversion in Egypt and the GCC, seasonality (Ramadan, Eid, White Friday, national days), Arabic vs English creative.${glossary(["Summary", "Campaign structure", "Platform", "Campaign", "Objective / optimisation event", "Ad sets or ad groups", "Targeting", "Placements", "Audience angles", "Budget & channel allocation", "Channel", "Share %", "Amount", "Rationale", "Total", "KPIs & targets", "Testing plan", "Tracking checklist", "Risks & assumptions"])}`,
       prompt: `Plan this campaign:\n${block([
         line("Product / offer", inputs.offer),
         line("Objective", OBJECTIVES[inputs.objective] ?? inputs.objective),
@@ -174,7 +188,7 @@ Structure:
 ## Irresistible offer structures — 3–4 concrete offer packages (what's included, price framing, risk reversal, urgency) that keep margin healthy.
 ## Objection handlers — Markdown table: Objection | Response (in the requested language) | Proof to show.
 ## Ad hooks — 10 scroll-stopping hooks in the requested language/dialect, labelled by angle.
-## Pricing psychology tips — 3–5 bullets.`,
+## Pricing psychology tips — 3–5 bullets.${glossary(["Positioning snapshot", "Competitor comparison", "Competitor", "Price", "Offer", "Weakness to exploit", "Offer angles", "Name", "Example headline", "Irresistible offer structures", "What's included", "Price framing", "Risk reversal", "Urgency", "Objection handlers", "Objection", "Response", "Proof to show", "Ad hooks", "Pricing psychology tips"])}`,
       prompt: `Build offer angles for:\n${block([
         line("Product / service", inputs.product),
         line("Our price", inputs.price),
@@ -331,7 +345,7 @@ The three concepts must differ meaningfully (e.g. monogram, symbol, wordmark/emb
   // reportGenerator
   return {
     system: `You are an account director at POWER MEDIA writing a client-ready performance report.\n${COMMON_RULES}
-- Use ONLY numbers that appear in the agency records or in the results provided by the user. Never estimate, extrapolate or round into new figures. If a metric is missing, write [metric not provided].
+- Use ONLY numbers that appear in the agency records or in the results provided by the user. Never estimate, extrapolate or round into new figures. If a metric is missing, say plainly that it was not provided (in the output language) — never use square brackets.
 - Professional, confident, client-friendly tone; no internal jargon or blame.\n\n${languageRule}\n
 Structure:
 # <Report title with client name and period>
@@ -341,12 +355,12 @@ Structure:
 ## Results — Markdown table of the provided metrics only, with a one-line interpretation each.
 ## Insights — what worked, what didn't, why.
 ## Next steps & recommendations — prioritised.
-## Data sources — note that figures come from agency records and the data supplied for this report.`,
+## Data sources — note that figures come from agency records and the data supplied for this report.${glossary(["Executive summary", "Scope & period", "Work delivered", "Results", "Metric", "Value", "Interpretation", "Insights", "Next steps & recommendations", "Data sources"])}`,
     prompt: `Write the report for the period ${inputs.period_start} to ${inputs.period_end}.\n\n${block([
       line("Results & metrics provided", inputs.metrics),
       line("Highlights & notes", inputs.highlights),
       line("Planned next steps", inputs.next_steps),
-    ]) || "- (No additional metrics were provided — use placeholders for results.)"}${contextBlock}`,
+    ]) || "- (No additional metrics were provided — say that results data was not provided instead of inventing numbers.)"}${contextBlock}`,
     temperature: 0.3,
     maxOutputTokens: 3500,
   };

@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { enumLabel, outputDialect } from "./polish";
 
 /**
  * Brand identity output: parsing, validation and SVG sanitising.
@@ -127,7 +128,8 @@ export function parseIdentity(text: string): BrandIdentity | null {
 }
 
 /** Readable Markdown version for the AI library (no SVG). */
-export function identityToMarkdown(id: BrandIdentity) {
+export function identityToMarkdown(id: BrandIdentity, lang?: string | null) {
+  const e = (v: string) => enumLabel(v, outputDialect(lang));
   const lines = [
     `# ${id.brand_name}`,
     `> ${id.tagline}`,
@@ -140,7 +142,7 @@ export function identityToMarkdown(id: BrandIdentity) {
     "## Palette",
     "| Name | Hex | Role | Usage |",
     "|---|---|---|---|",
-    ...id.palette.map((c) => `| ${c.name} | \`${c.hex}\` | ${c.role} | ${c.usage} |`),
+    ...id.palette.map((c) => `| ${c.name} | \`${c.hex}\` | ${e(c.role)} | ${c.usage} |`),
     "",
     "## Typography",
     `- **Headings:** ${id.typography.heading.family} — ${id.typography.heading.why}`,

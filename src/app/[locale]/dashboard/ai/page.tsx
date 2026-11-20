@@ -68,7 +68,7 @@ export default async function AiHubPage({ params }: PageProps<"/[locale]/dashboa
               <li key={g.id}>
                 <Link href={localizedHref(locale, `/dashboard/ai/history/${g.id}`)} className="flex items-center justify-between gap-4 px-5 py-3.5 text-sm transition-colors hover:bg-white/[0.02]">
                   <span className="min-w-0">
-                    <span className="block truncate font-medium">{g.title}</span>
+                    <span className="block break-words font-medium" dir="auto">{g.title}</span>
                     <span className="text-xs text-ink-subtle">{opts[g.tool as keyof typeof opts] ?? g.tool}</span>
                   </span>
                   <span className="shrink-0 text-xs text-ink-subtle">{formatDate(g.created_at, locale)}</span>

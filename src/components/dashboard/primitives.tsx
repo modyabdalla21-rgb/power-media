@@ -5,11 +5,11 @@ import { cn } from "@/lib/utils";
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
     <div className="flex flex-col gap-4 border-b border-line pb-6 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
-        {description && <p className="mt-1.5 text-sm text-ink-muted">{description}</p>}
+      <div className="min-w-0">
+        <h1 className="break-words text-2xl font-bold tracking-tight text-balance sm:text-3xl">{title}</h1>
+        {description && <p className="mt-1.5 break-words text-sm text-ink-muted">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -46,8 +46,8 @@ export function EmptyState({ icon: Icon, title, body, action, className }: { ico
 export function Panel({ title, children, className, actions }: { title: string; children: ReactNode; className?: string; actions?: ReactNode }) {
   return (
     <section className={cn("surface-card overflow-hidden", className)}>
-      <header className="flex items-center justify-between border-b border-line px-5 py-4">
-        <h2 className="text-sm font-semibold">{title}</h2>
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line px-5 py-4">
+        <h2 className="min-w-0 break-words text-sm font-semibold">{title}</h2>
         {actions}
       </header>
       {children}

@@ -12,7 +12,7 @@ import { toolIcons } from "@/components/site/icons";
 import { LinkButton } from "@/components/ui/button";
 import { fieldsForRole, modules } from "@/config/modules";
 import { localizedHref } from "@/i18n/config";
-import { getActiveBrandKit, getClientWorkspace, resolveKitLogo, BRAND_KIT_COLUMNS, type BrandKit } from "@/lib/client/workspace";
+import { getActiveBrandKit, hasAgencyWork, resolveKitLogo, BRAND_KIT_COLUMNS, type BrandKit } from "@/lib/client/workspace";
 import { deleteRecord } from "@/lib/crud/actions";
 import { loadRelationOptions } from "@/lib/crud/queries";
 import { getToolByKey } from "@/lib/ai/tools";
@@ -41,7 +41,7 @@ export default async function ProjectPage({ params }: PageProps<"/[locale]/dashb
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile();
   if (!supabase || !profile) notFound();
-  if (profile.role === "client" && (await getClientWorkspace())?.source === "self_serve") redirect(localizedHref(locale, "/dashboard/brand"));
+  if (profile.role === "client" && !(await hasAgencyWork())) redirect(localizedHref(locale, "/dashboard/brand"));
 
   const def = modules.projects;
   const { data } = await supabase.from("projects").select(def.select).eq("id", id).maybeSingle();
@@ -122,7 +122,7 @@ export default async function ProjectPage({ params }: PageProps<"/[locale]/dashb
                     <li key={g.id}>
                       <Link href={localizedHref(locale, `/dashboard/ai/history/${g.id}`)} className="flex min-h-12 items-center gap-3 px-5 py-3 text-sm hover:bg-white/[0.02]">
                         <Icon className="size-4 shrink-0 text-yellow" aria-hidden />
-                        <span className="min-w-0 flex-1 truncate font-medium">{g.title}</span>
+                        <span className="min-w-0 flex-1 break-words font-medium" dir="auto">{g.title}</span>
                         <span className="hidden shrink-0 text-xs text-ink-subtle sm:inline">{opts[g.tool as keyof typeof opts] ?? g.tool}</span>
                         <span className="shrink-0 text-xs text-ink-subtle">{formatDate(g.created_at, locale)}</span>
                       </Link>
@@ -158,8 +158,8 @@ export default async function ProjectPage({ params }: PageProps<"/[locale]/dashb
               <div className="flex items-center gap-4 p-5">
                 <SvgLogo svg={logo.svg} url={logo.url} alt={kit.name} className="size-16 shrink-0" />
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">{kit.name}</p>
-                  {kit.tagline && <p className="truncate text-xs text-blue-300">{kit.tagline}</p>}
+                  <p className="break-words font-semibold" dir="auto">{kit.name}</p>
+                  {kit.tagline && <p className="break-words text-xs text-blue-300" dir="auto">{kit.tagline}</p>}
                   <div className="mt-2 flex gap-1" aria-hidden>
                     {kit.palette?.slice(0, 6).map((c, i) => <span key={i} className="size-4 rounded-full border border-line" style={{ backgroundColor: c.hex }} />)}
                   </div>
@@ -185,7 +185,7 @@ export default async function ProjectPage({ params }: PageProps<"/[locale]/dashb
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3 px-5 py-3">
                   <dt className="text-ink-subtle">{k}</dt>
-                  <dd className="text-end">{v}</dd>
+                  <dd className="min-w-0 break-words text-end">{v}</dd>
                 </div>
               ))}
             </dl>

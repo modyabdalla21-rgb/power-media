@@ -1,6 +1,6 @@
 import {
-  BarChart3, Bot, Briefcase, Stethoscope, CreditCard, LifeBuoy, Library, Palette, FileText, FolderKanban, Inbox, LayoutDashboard, ListChecks, Megaphone,
-  Settings, UsersRound, Wallet, type LucideIcon,
+  BarChart3, Bot, Briefcase, Clapperboard, Crosshair, Gem, Stethoscope, CreditCard, LifeBuoy, Library, Palette, FileText, FolderKanban, Inbox,
+  LayoutDashboard, ListChecks, Megaphone, Settings, Swords, Target, UsersRound, Wallet, type LucideIcon,
 } from "lucide-react";
 import { ALL, STAFF, genericModuleKeys, modulePath, modules, type ModuleKey, type Role } from "@/config/modules";
 import type { Dictionary } from "@/i18n/dictionaries/en";
@@ -20,7 +20,7 @@ export const moduleIcons: Record<ModuleKey, LucideIcon> = {
   brandTasks: ListChecks,
 };
 
-/** `agencyPortal`: agency-run work views, hidden from self-serve clients. */
+/** `agencyPortal`: agency-run work views, shown to clients only when the agency manages work for them. */
 type NavItem = { key: DashboardNavKey; href: string; icon: LucideIcon; roles: readonly Role[]; agencyPortal?: boolean };
 
 /** Modules that only make sense when the agency runs the account. */
@@ -31,7 +31,7 @@ const CLIENT: readonly Role[] = ["client"];
 const mod = (key: (typeof genericModuleKeys)[number] | "projects"): NavItem => ({ key, href: modulePath(modules[key]), icon: moduleIcons[key], roles: modules[key].roles.view, agencyPortal: (AGENCY_PORTAL_MODULES as readonly string[]).includes(key) });
 
 /** Sidebar navigation. Items are filtered by the signed-in user's role. */
-export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; items: NavItem[] }[] = [
+export const dashboardNav: NavGroup[] = [
   {
     group: "workspace",
     items: [
@@ -68,9 +68,52 @@ export const dashboardNav: { group: keyof Dictionary["dashboard"]["groups"]; ite
   { group: "system", items: [{ key: "settings", href: "/dashboard/settings", icon: Settings, roles: ALL }] },
 ];
 
-export function navForRole(role: Role | undefined, opts: { selfServe?: boolean } = {}) {
-  const hideAgency = role === "client" && opts.selfServe;
+type NavGroup = { group: keyof Dictionary["dashboard"]["groups"]; items: NavItem[] };
+
+/**
+ * Client menu: an AI brand-growth workspace with direct access to the growth
+ * tools. Agency-run views (projects, campaigns, reports, invoices) appear only
+ * when the agency actually manages work for this client.
+ */
+const clientNav: NavGroup[] = [
+  {
+    group: "workspace",
+    items: [
+      { key: "brand", href: "/dashboard/brand", icon: Palette, roles: CLIENT },
+      { key: "growth", href: "/dashboard/growth", icon: Stethoscope, roles: CLIENT },
+      { key: "growthTasks", href: "/dashboard/brand#tasks", icon: ListChecks, roles: CLIENT },
+      { key: "brandKit", href: "/dashboard/brand#identity", icon: Gem, roles: CLIENT },
+    ],
+  },
+  {
+    group: "growthTools",
+    items: [
+      { key: "contentStudio", href: "/dashboard/ai/ad-copy-studio", icon: Clapperboard, roles: CLIENT },
+      { key: "offerTool", href: "/dashboard/ai/offer-angles", icon: Swords, roles: CLIENT },
+      { key: "plannerTool", href: "/dashboard/ai/campaign-media-planner", icon: Target, roles: CLIENT },
+      { key: "identityTool", href: "/dashboard/ai/brand-identity", icon: Crosshair, roles: CLIENT },
+      { key: "allTools", href: "/dashboard/ai", icon: Bot, roles: CLIENT },
+      { key: "aiLibrary", href: "/dashboard/ai/history", icon: Library, roles: CLIENT },
+    ],
+  },
+  {
+    group: "managed",
+    items: (["projects", "campaigns", "reports", "invoices"] as const).map((k) => ({ ...mod(k), roles: CLIENT })),
+  },
+  {
+    group: "account",
+    items: [
+      { key: "plan", href: "/dashboard/plan", icon: CreditCard, roles: CLIENT },
+      { key: "settings", href: "/dashboard/settings", icon: Settings, roles: CLIENT },
+    ],
+  },
+];
+
+export function navForRole(role: Role | undefined, opts: { agencyWork?: boolean } = {}): NavGroup[] {
+  if (role === "client") {
+    return clientNav.map((g) => ({ ...g, items: g.items.filter((i) => opts.agencyWork || !i.agencyPortal) })).filter((g) => g.items.length > 0);
+  }
   return dashboardNav
-    .map((g) => ({ ...g, items: g.items.filter((i) => !!role && i.roles.includes(role) && !(hideAgency && i.agencyPortal)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => !!role && i.roles.includes(role)) }))
     .filter((g) => g.items.length > 0);
 }

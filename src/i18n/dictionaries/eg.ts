@@ -96,7 +96,7 @@ const eg: DeepPartial<Dictionary> = {
   dashboard: {
     title: "لوحة التحكم",
     signOut: "اخرج",
-    groups: { workspace: "مساحتي", system: "الإعدادات" },
+    groups: { workspace: "مساحتي", system: "الإعدادات", growthTools: "أدوات النمو", managed: "شغل POWER MEDIA معاك", account: "حسابي" },
     nav: {
       overview: "الرئيسية",
       projects: "المشاريع",
@@ -109,6 +109,13 @@ const eg: DeepPartial<Dictionary> = {
       growth: "تشخيص النمو",
       brand: "مركز البراند",
       plan: "الباقة والاستخدام",
+      growthTasks: "مهام النمو",
+      brandKit: "هوية البراند والملفات",
+      contentStudio: "استوديو المحتوى والريلز",
+      offerTool: "العروض وزوايا المنافسين",
+      plannerTool: "خطة الحملات",
+      identityTool: "استوديو اللوجو والهوية",
+      allTools: "كل أدوات الذكاء الاصطناعي",
     },
     overview: {
       greeting: "أهلًا بيك",
@@ -176,6 +183,7 @@ const eg: DeepPartial<Dictionary> = {
       generate: "اعمل الهوية بالذكاء الاصطناعي",
       regenerate: "هات اقتراحات جديدة",
       palette: "الألوان",
+      colorRoles: { primary: "الأساسي", secondary: "التاني", accent: "اللون المميّز", neutral: "المحايد", background: "الخلفية" },
       typography: "الخطوط",
       voice: "أسلوب البراند",
       do: "اعمل",

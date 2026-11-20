@@ -421,7 +421,7 @@ const ar: Dictionary = {
     previewBanner:
       "وضع المعاينة — المصادقة وقاعدة البيانات غير متصلتين، ولا يتم حفظ أي بيانات. اربط Supabase لتفعيل لوحة التحكم بالكامل.",
     signOut: "تسجيل الخروج",
-    groups: { agency: "الوكالة", ai: "POWER AI", system: "النظام", workspace: "مساحة عملي" },
+    groups: { agency: "الوكالة", ai: "POWER AI", system: "النظام", workspace: "مساحة عملي", growthTools: "أدوات النمو", managed: "تُدار بواسطة POWER MEDIA", account: "الحساب" },
     roles: { admin: "مدير", team: "فريق", client: "عميل" },
     nav: {
       overview: "نظرة عامة",
@@ -441,6 +441,13 @@ const ar: Dictionary = {
       brand: "مركز العلامة",
       plan: "الباقة والاستخدام",
       brandTasks: "مهام العلامات",
+      growthTasks: "مهام النمو",
+      brandKit: "هوية العلامة والملفات",
+      contentStudio: "استوديو المحتوى والريلز",
+      offerTool: "العروض وزوايا المنافسين",
+      plannerTool: "مخطط الحملات",
+      identityTool: "استوديو الشعار والهوية",
+      allTools: "كل أدوات الذكاء الاصطناعي",
       requests: "طلبات العملاء",
     },
     overview: {
@@ -844,6 +851,7 @@ const ar: Dictionary = {
       generate: "أنشئ الهوية بالذكاء الاصطناعي",
       regenerate: "أنشئ مقترحات جديدة",
       palette: "لوحة الألوان",
+      colorRoles: { primary: "أساسي", secondary: "ثانوي", accent: "لون مميّز", neutral: "محايد", background: "الخلفية" },
       typography: "الخطوط",
       heading: "العناوين",
       body: "النصوص",

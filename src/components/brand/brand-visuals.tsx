@@ -34,7 +34,8 @@ const textOn = (hex: string) => {
   return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#001323" : "#ffffff";
 };
 
-export function PaletteSwatches({ palette }: { palette: Swatch[] }) {
+export function PaletteSwatches({ palette, roles }: { palette: Swatch[]; roles?: Record<string, string> }) {
+  const role = (r?: string) => (r ? (roles?.[r.toLowerCase()] ?? r) : undefined);
   const valid = palette.filter((c) => HEX.test(c.hex));
   return (
     <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -44,8 +45,8 @@ export function PaletteSwatches({ palette }: { palette: Swatch[] }) {
             {c.hex}
           </div>
           <div className="space-y-0.5 p-2 text-xs">
-            <p className="truncate font-medium">{c.name ?? c.role}</p>
-            {c.role && c.name && <p className="truncate text-ink-subtle">{c.role}</p>}
+            <p className="break-words font-medium" dir="auto">{c.name ?? role(c.role)}</p>
+            {c.role && c.name && <p className="break-words text-ink-subtle">{role(c.role)}</p>}
           </div>
         </li>
       ))}

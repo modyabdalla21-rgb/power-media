@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { loadContext } from "@/lib/ai/context";
+import { polishData, polishOutput } from "@/lib/ai/polish";
 import { loadBrandState } from "@/lib/ai/brand-state";
 import { identityToMarkdown, parseIdentity } from "@/lib/ai/identity";
 import { analysisToMarkdown, diagnosisToMarkdown, parseAnalysis, parseDiagnosis, parsePlan, planToMarkdown, type GrowthDiagnosis, type GrowthPlan } from "@/lib/ai/structured";
@@ -150,12 +151,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
     const started = Date.now();
     let result = await generateText(spec);
 
+    const outLang = values[tool.languageField] ?? "en";
+    const polished = <T,>(v: T | null) => (v ? polishData(v, outLang) : v);
     // Structured tools: parse + validate JSON, with one bounded retry.
     const parsers = {
-      identity: (t: string) => { const v = parseIdentity(t); return v && { data: v, md: identityToMarkdown(v) }; },
-      analysis: (t: string) => { const v = parseAnalysis(t); return v && { data: v, md: analysisToMarkdown(v) }; },
-      plan: (t: string) => { const v = parsePlan(t); return v && { data: v, md: planToMarkdown(v) }; },
-      diagnosis: (t: string) => { const v = parseDiagnosis(t); return v && { data: v, md: diagnosisToMarkdown(v) }; },
+      identity: (t: string) => { const v = polished(parseIdentity(t)); return v && { data: v, md: identityToMarkdown(v, outLang) }; },
+      analysis: (t: string) => { const v = polished(parseAnalysis(t)); return v && { data: v, md: analysisToMarkdown(v, outLang) }; },
+      plan: (t: string) => { const v = polished(parsePlan(t)); return v && { data: v, md: planToMarkdown(v, outLang) }; },
+      diagnosis: (t: string) => { const v = polished(parseDiagnosis(t)); return v && { data: v, md: diagnosisToMarkdown(v, outLang) }; },
     } as const;
     let structured: { data: unknown; md: string } | null = null;
     if (tool.output !== "markdown") {
@@ -169,7 +172,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       if (!structured) throw new AiError("badRequest", `${tool.output} output could not be parsed`);
     }
     const identity = tool.output === "identity" ? structured?.data ?? null : null;
-    const outputText = structured ? structured.md : result.text;
+    // Localized headings/labels and no raw "[...]" placeholders in what users see.
+    const outputText = polishOutput(structured ? structured.md : result.text, outLang);
 
     const subject =
       tool.key === "reportGenerator"

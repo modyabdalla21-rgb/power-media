@@ -150,7 +150,7 @@ export function TaskBoard({ d, tasks, plans, toolHrefs, dateFmt }: {
                     {t.priority === "high" && <StatusBadge value="high" label={o.high} />}
                     {t.status === "in_progress" && <StatusBadge value="in_progress" label={o.in_progress} />}
                     {t.source === "ai" && <StatusBadge value="active" label={h.fromAi} />}
-                    {t.plan_id && planTitle[t.plan_id] && <span className="max-w-48 truncate text-ink-subtle">{planTitle[t.plan_id]}</span>}
+                    {t.plan_id && planTitle[t.plan_id] && <span className="min-w-0 max-w-full break-words text-ink-subtle" dir="auto">{planTitle[t.plan_id]}</span>}
                     {t.due_date && <span className={overdue ? "font-medium text-yellow" : "text-ink-subtle"}>{overdue ? `${h.overdue} · ` : ""}{h.due.replace("{date}", dateFmt[t.due_date] ?? t.due_date)}</span>}
                   </div>
                 </div>

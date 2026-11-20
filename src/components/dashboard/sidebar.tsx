@@ -13,14 +13,18 @@ import type { Dictionary } from "@/i18n/dictionaries/en";
 import { aiTools } from "@/lib/ai/tools";
 import { cn } from "@/lib/utils";
 
-type Props = { locale: Locale; t: Dictionary["dashboard"]; tools: Dictionary["aiTools"]; role?: Role; selfServe?: boolean };
+type Props = { locale: Locale; t: Dictionary["dashboard"]; tools: Dictionary["aiTools"]; role?: Role; agencyWork?: boolean };
 type NavProps = Props & { onNavigate?: () => void };
 
-function NavContent({ locale, t, tools, role, selfServe, onNavigate }: NavProps) {
+function NavContent({ locale, t, tools, role, agencyWork, onNavigate }: NavProps) {
   const pathname = usePathname() ?? "";
   const isActive = (href: string) => {
+    // In-page anchors (e.g. Brand hub sections) never mark a route active.
+    if (href.includes("#")) return false;
     const full = localizedHref(locale, href);
     if (href === "/dashboard") return pathname === full;
+    // Clients get the AI tools as separate items; "All tools" is the hub only.
+    if (href === "/dashboard/ai" && role === "client") return pathname === full;
     if (href === "/dashboard/ai") return pathname.startsWith(full) && !pathname.startsWith(`${full}/history`);
     return pathname.startsWith(full);
   };
@@ -32,7 +36,7 @@ function NavContent({ locale, t, tools, role, selfServe, onNavigate }: NavProps)
 
   return (
     <nav aria-label={t.title} className="flex flex-col gap-6">
-      {navForRole(role, { selfServe }).map((group) => (
+      {navForRole(role, { agencyWork }).map((group) => (
         <div key={group.group}>
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">{t.groups[group.group]}</p>
           <ul className="space-y-0.5">
@@ -42,11 +46,11 @@ function NavContent({ locale, t, tools, role, selfServe, onNavigate }: NavProps)
                 <li key={item.key}>
                   <Link href={localizedHref(locale, item.href)} onClick={onNavigate} aria-current={active ? "page" : undefined} className={linkCls(active)}>
                     <item.icon className={cn("size-4.5 shrink-0", active ? "text-blue-300" : "text-ink-subtle group-hover:text-white")} aria-hidden />
-                    {t.nav[item.key]}
+                    <span className="min-w-0 break-words">{t.nav[item.key]}</span>
                   </Link>
-                  {item.key === "aiHub" && (
+                  {item.key === "aiHub" && role !== "client" && (
                     <ul className="mt-1 space-y-0.5 border-s border-line ms-5 ps-2">
-                      {aiTools.filter((tool) => !tool.hub && (role !== "client" || tool.access === "all")).map((tool) => {
+                      {aiTools.filter((tool) => !tool.hub).map((tool) => {
                         const href = `/dashboard/ai/${tool.slug}`;
                         const Icon = toolIcons[tool.key];
                         const a = isActive(href);
@@ -55,7 +59,7 @@ function NavContent({ locale, t, tools, role, selfServe, onNavigate }: NavProps)
                             <Link href={localizedHref(locale, href)} onClick={onNavigate} aria-current={a ? "page" : undefined}
                               className={cn("flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors", a ? "bg-white/5 text-white" : "text-ink-subtle hover:text-white")}>
                               <Icon className={cn("size-3.5 shrink-0", a && "text-yellow")} aria-hidden />
-                              <span className="truncate">{tools[tool.key].name}</span>
+                              <span className="min-w-0 break-words leading-snug">{tools[tool.key].name}</span>
                             </Link>
                           </li>
                         );

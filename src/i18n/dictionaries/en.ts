@@ -429,7 +429,7 @@ const en = {
     previewBanner:
       "Preview mode — authentication and database aren't connected. No data is stored. Configure Supabase to enable the full dashboard.",
     signOut: "Sign out",
-    groups: { agency: "Agency", ai: "POWER AI", system: "System", workspace: "My workspace" },
+    groups: { agency: "Agency", ai: "POWER AI", system: "System", workspace: "My workspace", growthTools: "Growth tools", managed: "Managed by POWER MEDIA", account: "Account" },
     roles: { admin: "Admin", team: "Team", client: "Client" },
     nav: {
       overview: "Overview",
@@ -449,6 +449,13 @@ const en = {
       brand: "Brand hub",
       plan: "Plan & usage",
       brandTasks: "Brand tasks",
+      growthTasks: "Growth tasks",
+      brandKit: "Brand kit & assets",
+      contentStudio: "Content & Reels Studio",
+      offerTool: "Offers & competitor angles",
+      plannerTool: "Campaign planner",
+      identityTool: "Logo & identity studio",
+      allTools: "All AI tools",
       requests: "Client requests",
     },
     overview: {
@@ -852,6 +859,7 @@ const en = {
       generate: "Generate identity with AI",
       regenerate: "Generate new concepts",
       palette: "Color palette",
+      colorRoles: { primary: "Primary", secondary: "Secondary", accent: "Accent", neutral: "Neutral", background: "Background" },
       typography: "Typography",
       heading: "Headings",
       body: "Body text",

@@ -239,7 +239,7 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
           <ul className="divide-y divide-line rounded-xl border border-line">
             {otherPlans.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
-                <span className="min-w-0 truncate text-ink-muted" dir="auto">{p.title}</span>
+                <span className="min-w-0 break-words text-ink-muted" dir="auto">{p.title}</span>
                 <span className="flex items-center gap-2"><StatusBadge value={p.status === "completed" ? "completed" : "draft"} label={opts[p.status] ?? p.status} /><PlanActions planId={p.id} status={p.status} h={h} /></span>
               </li>
             ))}
@@ -278,7 +278,7 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
               {!!active.palette?.length && (
                 <section>
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-subtle">{b.palette}</h3>
-                  <PaletteSwatches palette={active.palette} />
+                  <PaletteSwatches palette={active.palette} roles={b.colorRoles} />
                 </section>
               )}
               <div className="grid gap-6 sm:grid-cols-2">
@@ -322,7 +322,7 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
                     ) : (
                       <div className="aspect-square w-full bg-white/5" />
                     )}
-                    {(a.caption || a.file_name) && <p className="truncate px-2 py-1.5 text-xs text-ink-muted">{a.caption ?? a.file_name}</p>}
+                    {(a.caption || a.file_name) && <p className="line-clamp-2 break-all px-2 py-1.5 text-xs text-ink-muted" dir="auto" title={a.caption ?? a.file_name ?? undefined}>{a.caption ?? a.file_name}</p>}
                     <div className="absolute end-1.5 top-1.5"><RemoveAssetButton assetId={a.id} label={b.removeAsset} /></div>
                   </li>
                 ))}
@@ -341,7 +341,7 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
               <li key={k.id} className="flex items-center gap-4 px-5 py-3">
                 <SvgLogo svg={otherLogos[i].svg} url={otherLogos[i].url} alt={k.name} className="size-12 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{k.name}</p>
+                  <p className="break-words text-sm font-medium" dir="auto">{k.name}</p>
                   <p className="text-xs text-ink-subtle">{formatDate(k.created_at, locale)}</p>
                 </div>
                 <div className="hidden gap-1 sm:flex" aria-hidden>
