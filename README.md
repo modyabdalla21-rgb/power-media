@@ -62,7 +62,7 @@ In development, if Supabase isn't configured, the dashboard opens in **preview m
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: the `sb_publishable_…` key (a legacy anon JWT also works)
    - `SUPABASE_SERVICE_ROLE_KEY`: the `sb_secret_…` key, server only. It's needed to send team invite emails and to remove members.
-2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, `0002_power_ai.sql`, `0003_client_self_serve.sql`, `0004_brand_assets_projects.sql`, `0005_brand_hub.sql`, `0006_growth_engine.sql`, then `0007_growth_tools.sql`. Each script is idempotent, so it's safe to run again.
+2. **Database**: in the Supabase SQL Editor, run `supabase/migrations/0001_initial_schema.sql`, `0002_power_ai.sql`, `0003_client_self_serve.sql`, `0004_brand_assets_projects.sql`, `0005_brand_hub.sql`, `0006_growth_engine.sql`, `0007_growth_tools.sql`, then `0008_logo_images.sql`. Each script is idempotent, so it's safe to run again.
 3. **Make yourself admin**: sign up on the site, confirm your email, then run:
    ```sql
    update public.profiles set role = 'admin' where email = 'you@example.com';
@@ -107,6 +107,7 @@ Three tools live at `/[locale]/dashboard/ai`. They're for staff (`admin` and `te
 | Client Report Generator | A client-ready report built from dashboard records plus the results you paste in. It never invents figures. |
 
 - **Providers:** `lib/ai/provider.ts` tries Gemini (`GEMINI_API_KEY`) first, then Anthropic (`ANTHROPIC_API_KEY`) if it's set. On rate limits, quota or a missing model, it falls back to the next model, then the next provider. Keys are sent as opaque strings, and only normalised error codes reach the browser.
+- **Logo images:** after an identity is generated, each concept's logo is rendered as a raster image (`/api/ai/identity-image`, one request per concept) with `GEMINI_API_KEY`, trying `GEMINI_IMAGE_MODEL` (optional), then `gemini-2.5-flash-image`, `gemini-2.0-flash-preview-image-generation` and `imagen-3.0-generate-002`. Images are stored in the private `brand-assets` bucket (table `brand_logo_images`, migration 0008); "Use this concept" makes the image the brand's active logo. If every image model is out of quota or unavailable, the refined SVG draft is shown instead.
 - **AI library** (`/dashboard/ai/history`): every successful generation is saved automatically. Staff can link it to a client or project, rename it, share it with the client, copy it or delete it. Clients see only documents shared with their account.
 - **Access** (`0002_power_ai.sql`): admins manage everything, team members manage their own generations, clients have read-only access to shared ones, and generated content can't be edited after it's saved.
 - **Limits:** `AI_HOURLY_LIMIT` caps generations per user per hour (default 30), to protect the free-tier quota.

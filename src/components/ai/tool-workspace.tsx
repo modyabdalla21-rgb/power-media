@@ -275,7 +275,7 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
               {mode === "post" && state.post ? (
                 <StaticPostStudio data={state.post} imageUrl={state.imageUrl} logo={postKit?.logo ?? null} t={d.post} dir={outputDir} />
               ) : mode === "identity" && state.identity ? (
-                <IdentityConceptsView identity={state.identity} d={d} generationId={state.id} canApply={canApply && !!state.id} brandHref={brandHref} dir={outputDir} />
+                <IdentityConceptsView identity={state.identity} d={d} generationId={state.id} canApply={canApply && !!state.id} brandHref={brandHref} dir={outputDir} autoRender />
               ) : (
                 <Markdown text={state.text} dir={outputDir} />
               )}

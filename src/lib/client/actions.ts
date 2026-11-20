@@ -105,6 +105,30 @@ export async function applyIdentityConcept(_prev: ApplyState, fd: FormData): Pro
   const concept = identity?.concepts?.[index];
   if (!gen || gen.tool !== "brandIdentity" || !identity || !concept || !gen.client_id) return { error: "invalid" };
 
+  // A rendered logo image (if any) becomes the kit's logo asset; the SVG stays as a vector fallback.
+  let logoAssetId: string | null = null;
+  const { data: image } = await supabase.from("brand_logo_images").select("storage_path, mime_type").eq("generation_id", gen.id).eq("concept", index).maybeSingle();
+  if (image) {
+    const { data: existing } = await supabase.from("brand_assets").select("id").eq("storage_path", image.storage_path).maybeSingle();
+    if (existing) logoAssetId = existing.id;
+    else {
+      const { data: asset, error: assetError } = await supabase
+        .from("brand_assets")
+        .insert({
+          client_id: gen.client_id,
+          kind: "logo",
+          storage_path: image.storage_path,
+          file_name: `${identity.brand_name} — ${concept.name}`.slice(0, 200),
+          mime_type: image.mime_type,
+          caption: concept.name.slice(0, 300),
+        })
+        .select("id")
+        .single();
+      if (assetError) console.error("[brand] logo asset failed", assetError.code, assetError.message);
+      logoAssetId = asset?.id ?? null;
+    }
+  }
+
   const { data: kit, error } = await supabase
     .from("brand_kits")
     .insert({
@@ -120,6 +144,7 @@ export async function applyIdentityConcept(_prev: ApplyState, fd: FormData): Pro
       logo_svg: sanitizeSvg(concept.svg),
       logo_prompt: concept.logo_prompt?.slice(0, 2000) || null,
       generation_id: gen.id,
+      logo_asset_id: logoAssetId,
     })
     .select("id")
     .single();

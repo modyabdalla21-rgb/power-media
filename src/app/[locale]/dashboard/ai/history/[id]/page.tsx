@@ -7,6 +7,7 @@ import { polishOutput } from "@/lib/ai/polish";
 import { StaticPostStudio, type PostLogo, type StaticPostData } from "@/components/ai/static-post-studio";
 import { BRAND_BUCKET, getActiveBrandKit, resolveKitLogo } from "@/lib/client/workspace";
 import { IdentityConceptsView } from "@/components/brand/identity-view";
+import type { LogoImage } from "@/components/brand/concept-logo";
 import type { BrandIdentity } from "@/lib/ai/identity";
 import { clientFields } from "@/components/dashboard/crud/module-view";
 import { ConfirmDelete } from "@/components/dashboard/crud/delete-button";
@@ -63,6 +64,23 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
   const libraryHref = localizedHref(locale, "/dashboard/ai/history");
   const dir = g.language && isArabicOutput(g.language) ? "rtl" : "ltr";
 
+  // Identity: logo images already rendered for this generation (private storage → signed URLs).
+  const logoImages: (LogoImage | null)[] = [null, null, null];
+  if (g.tool === "brandIdentity") {
+    const { data: rows } = await supabase.from("brand_logo_images").select("concept, storage_path, mime_type").eq("generation_id", g.id);
+    const base = (g.data?.brand_name ?? "logo").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40) || "logo";
+    await Promise.all(
+      (rows ?? []).map(async (r) => {
+        const fileName = `${base}-logo-${r.concept + 1}.${r.mime_type === "image/jpeg" ? "jpg" : r.mime_type === "image/webp" ? "webp" : "png"}`;
+        const [view, dl] = await Promise.all([
+          supabase.storage.from(BRAND_BUCKET).createSignedUrl(r.storage_path, 3600),
+          supabase.storage.from(BRAND_BUCKET).createSignedUrl(r.storage_path, 3600, { download: fileName }),
+        ]);
+        if (view.data?.signedUrl && r.concept >= 0 && r.concept <= 2) logoImages[r.concept] = { url: view.data.signedUrl, downloadUrl: dl.data?.signedUrl ?? null, fileName, stored: true };
+      }),
+    );
+  }
+
   // Static posts: re-sign the product photo and the brand's current logo for the composer.
   const raw = g.data as unknown as Partial<StaticPostData> | null;
   const postData = g.tool === "staticPost" && Array.isArray(raw?.posts) && raw?.brand ? (raw as StaticPostData) : null;
@@ -115,7 +133,7 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
           {g.tool === "staticPost" && postData ? (
             <StaticPostStudio data={postData} imageUrl={postImage} logo={postLogo} t={dict.dashboard.post} dir={dir} />
           ) : g.tool === "brandIdentity" && g.data?.concepts ? (
-            <IdentityConceptsView identity={g.data} d={dict.dashboard} generationId={g.id} canApply={canApply} brandHref={profile.role === "client" ? localizedHref(locale, "/dashboard/brand") : undefined} dir={dir} />
+            <IdentityConceptsView identity={g.data} d={dict.dashboard} generationId={g.id} canApply={canApply} brandHref={profile.role === "client" ? localizedHref(locale, "/dashboard/brand") : undefined} dir={dir} images={logoImages} />
           ) : (
             <Markdown text={polishOutput(g.output ?? "", g.language)} dir={dir} />
           )}

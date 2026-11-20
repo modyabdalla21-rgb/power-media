@@ -9,6 +9,8 @@ export const serverEnv = {
   /** Opaque — `AIza…` and `AQ.…` key formats are both accepted. */
   geminiApiKey: (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY ?? "").trim(),
   geminiModel: (process.env.GEMINI_MODEL ?? "").trim(),
+  /** Optional first choice for logo images (e.g. "gemini-2.5-flash-image" or "imagen-3.0-generate-002"). */
+  geminiImageModel: (process.env.GEMINI_IMAGE_MODEL ?? "").trim(),
   anthropicApiKey: (process.env.ANTHROPIC_API_KEY ?? "").trim(),
   anthropicModel: (process.env.ANTHROPIC_MODEL ?? "").trim(),
   /** Successful generations allowed per user per hour (protects free-tier quota). */
