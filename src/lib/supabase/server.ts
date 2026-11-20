@@ -25,12 +25,21 @@ export async function createSupabaseServerClient() {
   });
 }
 
-/** Authenticated user (verified with Supabase Auth), memoised per request. */
-export const getCurrentUser = cache(async () => {
+export type SessionUser = { id: string; email: string | null };
+
+/**
+ * Authenticated user, memoised per request. `getClaims()` verifies the
+ * session JWT — locally with asymmetric signing keys (no Auth round trip on
+ * every navigation), or via Supabase Auth for legacy symmetric keys — so it's
+ * as trustworthy as `getUser()` but much faster.
+ */
+export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  return data.user ?? null;
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (error || !claims?.sub) return null;
+  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
 });
 
 /** Current user's profile incl. role, memoised per request. */

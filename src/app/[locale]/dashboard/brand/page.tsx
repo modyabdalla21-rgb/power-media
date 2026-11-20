@@ -39,27 +39,27 @@ export default async function BrandPage({ params, searchParams }: PageProps<"/[l
   const d = dict.dashboard;
   const b = d.brand;
 
-  const { data } = await supabase.from("brand_kits").select(BRAND_KIT_COLUMNS).eq("client_id", workspace.id).order("created_at", { ascending: false }).limit(20);
+  // All independent reads in one parallel round trip (RLS: own workspace only).
+  const [{ data }, assets, { data: analysisRow }, { data: planRows }, { data: taskRows }] = await Promise.all([
+    supabase.from("brand_kits").select(BRAND_KIT_COLUMNS).eq("client_id", workspace.id).order("created_at", { ascending: false }).limit(20),
+    listBrandAssets(supabase, workspace.id),
+    supabase.from("ai_generations").select("id, data, created_at").eq("client_id", workspace.id).in("tool", ["brandAnalysis", "growthDiagnosis"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("brand_plans").select("id, title, goal, summary, horizon, status, source, created_at").eq("client_id", workspace.id).order("created_at", { ascending: false }).limit(20),
+    supabase.from("brand_tasks").select("id, title, details, category, priority, status, due_date, plan_id, tool_hint, source").eq("client_id", workspace.id).order("status").order("sort_order").order("created_at", { ascending: false }).limit(200),
+  ]);
   const kits = (data ?? []) as BrandKit[];
   const active = kits.find((k) => k.is_active) ?? null;
   const others = kits.filter((k) => !k.is_active);
-  const [activeLogo, otherLogos, assets] = await Promise.all([
-    resolveKitLogo(supabase, active),
-    Promise.all(others.map((k) => resolveKitLogo(supabase, k))),
-    listBrandAssets(supabase, workspace.id),
-  ]);
+  // Kit logos reuse the asset list's signed URLs; only unknown assets cost an extra lookup.
+  const signed = new Map(assets.map((a) => [a.id, a.url]));
+  const logoOf = (k: BrandKit | null) =>
+    k?.logo_asset_id && signed.get(k.logo_asset_id) ? Promise.resolve({ svg: null, url: signed.get(k.logo_asset_id)! }) : resolveKitLogo(supabase, k);
+  const [activeLogo, otherLogos] = await Promise.all([logoOf(active), Promise.all(others.map(logoOf))]);
   // Product photos feed the Static Post Studio (optional — not part of readiness).
   const products = assets.filter((a) => a.kind === "product");
   const identityHref = localizedHref(locale, "/dashboard/ai/brand-identity");
   const h = d.hub;
   const opts = d.options as Record<string, string>;
-
-  // ── Hub data: latest AI analysis, plans, tasks (RLS: own workspace only).
-  const [{ data: analysisRow }, { data: planRows }, { data: taskRows }] = await Promise.all([
-    supabase.from("ai_generations").select("id, data, created_at").eq("client_id", workspace.id).in("tool", ["brandAnalysis", "growthDiagnosis"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("brand_plans").select("id, title, goal, summary, horizon, status, source, created_at").eq("client_id", workspace.id).order("created_at", { ascending: false }).limit(20),
-    supabase.from("brand_tasks").select("id, title, details, category, priority, status, due_date, plan_id, tool_hint, source").eq("client_id", workspace.id).order("status").order("sort_order").order("created_at", { ascending: false }).limit(200),
-  ]);
   // Latest of a quick analysis or a full Growth Diagnosis (a superset of the analysis shape).
   const analysis = (analysisRow?.data ?? null) as (BrandAnalysis & { bottleneck_insight?: string; roadmap?: { title: string; phases: { name: string; focus: string; timeframe?: string }[] } }) | null;
   const plans = (planRows ?? []) as { id: string; title: string; goal: string | null; summary: string | null; horizon: string; status: string; source: string; created_at: string }[];

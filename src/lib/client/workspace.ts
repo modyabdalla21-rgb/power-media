@@ -66,11 +66,15 @@ export const getClientWorkspace = cache(async (): Promise<Workspace | null> => {
   const supabase = await createSupabaseServerClient();
   if (!profile || !supabase || profile.role !== "client") return null;
 
-  const { data: id, error } = await supabase.rpc("ensure_client_workspace");
-  if (error) console.error("[workspace] ensure failed", error.code, error.message);
-  let query = supabase.from("clients").select(WORKSPACE_COLUMNS).eq("portal_user_id", profile.id);
-  if (typeof id === "string") query = query.eq("id", id);
-  const { data } = await query.order("created_at").limit(1).maybeSingle();
+  // Fast path (every navigation): one select. Same row the RPC would pick (oldest workspace).
+  const select = () => supabase.from("clients").select(WORKSPACE_COLUMNS).eq("portal_user_id", profile.id).order("created_at").limit(1).maybeSingle();
+  let { data } = await select();
+  if (!data) {
+    // First visit: provision the workspace (security-definer RPC), then read it.
+    const { error } = await supabase.rpc("ensure_client_workspace");
+    if (error) console.error("[workspace] ensure failed", error.code, error.message);
+    ({ data } = await select());
+  }
   if (!data) return null;
   return { ...(data as Workspace), plan_tier: isPlanTier(data.plan_tier) ? data.plan_tier : "free" };
 });

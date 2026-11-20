@@ -40,16 +40,19 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
 
   const supabase = await createSupabaseServerClient();
   const workspace = isClient ? await getClientWorkspace() : null;
-  const kit = supabase && workspace ? await getActiveBrandKit(supabase, workspace.id) : null;
+  const isPost = tool.output === "post";
 
+  // One parallel round: brand kit, link options and (post studio) brand assets.
   // Staff link outputs to clients/projects (RLS-scoped); clients always work in their own workspace.
   // RLS limits clients to their own projects.
-  const [clients, projects] = supabase
+  const [kit, clients, projects, assets] = supabase
     ? await Promise.all([
+        workspace ? getActiveBrandKit(supabase, workspace.id) : Promise.resolve(null),
         isClient ? Promise.resolve({ data: [] }) : supabase.from("clients").select("id, name").order("name").limit(500),
         supabase.from("projects").select("id, name, client_id, client:clients(name)").order("name").limit(500),
+        isPost && workspace ? listBrandAssets(supabase, workspace.id) : Promise.resolve([]),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [null, { data: [] }, { data: [] }, []];
   const sp = await searchParams;
   const requestedProject = typeof sp.project === "string" ? sp.project : undefined;
   const clientOptions = (clients.data ?? []).map((c) => ({ value: c.id as string, label: c.name as string }));
@@ -100,7 +103,6 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
       };
     });
 
-  const isPost = tool.output === "post";
   const brandNote =
     isClient && tool.output !== "identity"
       ? kit
@@ -109,7 +111,8 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
       : null;
 
   // Static Post Studio: product photos + logo for the on-brand composition.
-  const [assets, logo] = isPost && supabase && workspace ? await Promise.all([listBrandAssets(supabase, workspace.id), resolveKitLogo(supabase, kit)]) : [[], null];
+  const signedLogo = kit?.logo_asset_id ? assets.find((a) => a.id === kit.logo_asset_id)?.url : null;
+  const logo = !isPost || !supabase ? null : signedLogo ? { svg: null, url: signedLogo } : await resolveKitLogo(supabase, kit);
   const postKit = isPost
     ? {
         clientId: workspace?.id ?? null,

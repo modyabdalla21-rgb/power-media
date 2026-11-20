@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { Info, LogOut } from "lucide-react";
-import { MobileSidebar, Sidebar } from "@/components/dashboard/sidebar";
+import { MobileSidebar, Sidebar, type SidebarText, type SidebarTool } from "@/components/dashboard/sidebar";
+import { aiTools } from "@/lib/ai/tools";
+import { navForRole } from "@/config/dashboard";
 import { LanguageSwitcher } from "@/components/site/language-switcher";
 import { localizedHref } from "@/i18n/config";
 import { signOut } from "@/lib/auth/actions";
@@ -25,15 +27,18 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
   const profile = await getCurrentProfile();
   // Preview mode (no Supabase in development) shows the full admin menu.
   const role = profile?.role ?? (isDashboardPreview ? "admin" : "client");
+  const navText: SidebarText = { title: t.title, close: t.crud.close, groups: t.groups, nav: t.nav };
+  const nav = navForRole(role);
+  const navTools: SidebarTool[] = role === "client" ? [] : aiTools.filter((x) => !x.hub).map((x) => ({ key: x.key, slug: x.slug, name: dict.aiTools[x.key].name }));
   const display = profile?.full_name || profile?.email || "POWER MEDIA";
   const initials = display.replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "PM";
 
   return (
     <div className="min-h-dvh bg-surface-0">
-      <Sidebar locale={locale} t={t} tools={dict.aiTools} role={role} />
+      <Sidebar locale={locale} t={navText} tools={navTools} nav={nav} role={role} />
       <div className="min-w-0 lg:ps-68">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-navy/80 px-4 backdrop-blur-xl sm:px-6">
-          <MobileSidebar locale={locale} t={t} tools={dict.aiTools} role={role} />
+          <MobileSidebar locale={locale} t={navText} tools={navTools} nav={nav} role={role} />
           <p className="flex-1 truncate text-sm text-ink-subtle">{t.title}</p>
           <LanguageSwitcher locale={locale} label={dict.nav.language} compact />
           {user && (
