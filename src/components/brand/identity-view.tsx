@@ -38,23 +38,39 @@ export function IdentityConceptsView({ identity, d, generationId, canApply, bran
       </div>
       <section>
         <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-subtle">{b.logo}</h4>
-        <ul className="grid gap-4 md:grid-cols-3">
-          {identity.concepts.map((c, i) => (
-            <li key={`${c.name}-${i}`} className="surface-card flex flex-col p-4">
-              <SvgLogo svg={c.svg} alt={`${identity.brand_name} — ${c.name}`} className="aspect-square w-full" />
-              <p className="mt-3 text-xs text-ink-subtle">{d.identity.concept} {i + 1}</p>
-              <p className="font-semibold">{c.name}</p>
-              <p className="mt-1 flex-1 text-xs leading-relaxed text-ink-muted">{c.idea}</p>
-              {c.logo_prompt && (
-                <details className="mt-2 text-xs text-ink-subtle">
-                  <summary className="cursor-pointer hover:text-white">{b.logoPrompt}</summary>
-                  <p className="mt-1 whitespace-pre-wrap" dir="ltr">{c.logo_prompt}</p>
-                </details>
-              )}
-              {canApply && generationId && <div className="mt-3"><ApplyConceptButton generationId={generationId} concept={i} d={d} brandHref={brandHref} /></div>}
-            </li>
-          ))}
-        </ul>
+        {/* Container-sized: 3 columns only when each card has room; otherwise 1 → 2 → 3 rows stay in order. */}
+        <div className="@container">
+          <ol className="grid gap-4 @2xl:grid-cols-3">
+            {identity.concepts.map((c, i) => (
+              <li key={`${c.name}-${i}`} className="surface-card flex min-w-0 flex-col gap-4 p-4 @md:flex-row @2xl:flex-col">
+                <div className="w-full shrink-0 space-y-2 @md:w-44 @2xl:w-full">
+                  <div className="relative">
+                    <SvgLogo svg={c.svg} alt={`${identity.brand_name} — ${c.name}`} className="aspect-square w-full" />
+                    <span className="absolute start-2 top-2 inline-flex size-7 items-center justify-center rounded-full bg-navy text-xs font-bold tabular-nums text-white shadow" aria-hidden>{i + 1}</span>
+                  </div>
+                  {c.svg && (
+                    <div className="grid grid-cols-2 gap-2" aria-hidden>
+                      <SvgLogo svg={c.svg} alt="" className="aspect-[3/2] w-full border-white/10 bg-navy [&_img]:p-2" />
+                      <SvgLogo svg={c.svg} alt="" className="aspect-[3/2] w-full border-line bg-[#F6F4EF] [&_img]:p-2" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-blue-300">{d.identity.concept} {i + 1}</p>
+                  <p className="mt-0.5 break-words font-semibold" dir="auto">{c.name}</p>
+                  <p className="mt-1 flex-1 break-words text-xs leading-relaxed text-ink-muted" dir="auto">{c.idea}</p>
+                  {c.logo_prompt && (
+                    <details className="mt-2 text-xs text-ink-subtle">
+                      <summary className="cursor-pointer hover:text-white">{b.logoPrompt}</summary>
+                      <p className="mt-1 whitespace-pre-wrap break-words" dir="ltr">{c.logo_prompt}</p>
+                    </details>
+                  )}
+                  {canApply && generationId && <div className="mt-3"><ApplyConceptButton generationId={generationId} concept={i} d={d} brandHref={brandHref} /></div>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
         <p className="mt-3 text-xs text-ink-subtle">{d.identity.svgNote}</p>
       </section>
     </div>

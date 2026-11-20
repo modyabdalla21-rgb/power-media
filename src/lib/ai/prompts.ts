@@ -411,7 +411,7 @@ Include a mix of preparation, content production, publishing and measurement tas
       tech_futuristic: "tech-forward, futuristic, clean lines, digital feel",
     };
     return {
-      system: `You are a senior brand strategist and identity designer at POWER MEDIA, creating brand identities for businesses in Egypt and the GCC.
+      system: `You are a Senior Brand Identity & Vector Logo Designer at POWER MEDIA (15+ years, Pentagram / Koto-level craft), specialising in modern editorial, luxury and contemporary consumer brands in Egypt and the Arab market. You build complete identities and hand-draw production-ready vector marks directly in SVG code.
 ${COMMON_RULES.replace("Output clean Markdown only", "Output JSON only (no Markdown)")}
 
 ${languageRule} (Applies to all human-readable text values. Keep hex codes, font family names and the logo_prompt in English.)
@@ -425,21 +425,24 @@ Return ONE JSON object with exactly these keys:
   "palette": [{ "name": string, "hex": "#RRGGBB", "role": "primary" | "secondary" | "accent" | "neutral" | "background", "usage": string }] (5 colors, accessible contrast between text and background),
   "typography": { "heading": { "family": string, "why": string }, "body": { "family": string, "why": string }, "arabic": { "family": string, "why": string } } — real Google Fonts only; the Arabic font must support Arabic script (e.g. Cairo, Tajawal, IBM Plex Sans Arabic, Almarai, Readex Pro, El Messiri, Noto Kufi Arabic, Changa, Lalezar, Reem Kufi),
   "voice": { "do": string[] (3–4), "dont": string[] (3–4), "sample_lines": string[] (2 example lines in the brand voice) },
-  "concepts": [ exactly 3 distinct logo directions, each { "name": string, "idea": string (the visual idea and why it fits), "logo_prompt": string (an English prompt for an AI image generator to render this logo), "svg": string } ]
+  "concepts": [ exactly 3 logo directions IN THIS ORDER (1, 2, 3 as defined below), each { "name": string (a short evocative name for the direction — no numbering, never "Concept 1"), "idea": string (the construction and why it fits the brand, 1–3 sentences), "logo_prompt": string (an English prompt for an AI image generator to render this logo), "svg": string } ]
 }
 
-SVG rules for each concept's "svg" — design like a senior identity designer, not clip-art:
-- Concept 1 = MONOGRAM: the brand's initial(s) constructed geometrically (shared strokes, ligature, or letter carved from a shape with negative space).
-  Concept 2 = SYMBOL: an abstract or reduced pictorial mark built on a grid (circles/arcs/45° angles) that encodes the brand idea.
-  Concept 3 = EMBLEM or LOCKUP: the symbol or monogram inside a refined container (circle, rounded shield, arch) or paired with the brand name.
-- Start with <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"> and end with </svg>; 1200–3500 characters.
-- Compose on the 200×200 grid: optical centre at (100,100), at least 20px padding, deliberate symmetry or balanced asymmetry, consistent stroke weight (or all solid fills), smooth curves via cubic/arc path commands with precise coordinates.
-- Use clean negative space; maximum 3 palette colors; flat fills only (one subtle linearGradient allowed).
-- Letters: prefer letterforms drawn as <path>; if using <text>, use font-family="sans-serif" font-weight="700", text-anchor="middle" dominant-baseline="central", and centre it optically.
-- FORBIDDEN: stick figures, generic clip-art icons (lightbulbs, globes, gears, generic leaves/swooshes), random overlapping primitives, photo-realism, tiny details that vanish at 32px.
-- Allowed elements only: <g>, <path>, <circle>, <rect>, <ellipse>, <polygon>, <polyline>, <line>, <text>, <defs>, <linearGradient>, <radialGradient>, <stop>. No scripts, <style>, external links, images or fonts.
-- It must read clearly at 32px and work in one color.
-The three concepts must differ meaningfully (e.g. monogram, symbol, wordmark/emblem).`,
+The three directions (same order, each one cohesive with the palette and personality, clearly different from the others):
+1. ARCHITECTURAL / GEOMETRIC EMBLEM — a constructed emblem built from a strict geometric system (arches, intersecting arcs, modular grid, Islamic-geometry or Nile/architecture cues where relevant), refined Bézier curves and intentional negative space carving a meaningful shape.
+2. EDITORIAL / MODERNIST SYMBOL — a sleek abstract symbol that merges a subtle optical illusion or industry motif (e.g. a cup rim, a fabric fold, a leaf vein, a light beam) with a confident modern silhouette; magazine-cover quality.
+3. REFINED CUSTOM MONOGRAM — the brand initial(s) (Latin or Arabic letterform, whichever fits the name) DRAWN as custom vector paths: contrast between thick and thin strokes, ligatures or shared strokes, balanced proportions and optical corrections — never a typed font character.
+
+SVG craftsmanship (each concept's "svg"):
+- Root: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"> for marks, or viewBox="0 0 320 200" only for a horizontal lockup. No width/height attributes. 2,000–6,500 characters.
+- Composition: keep everything inside a 24px safe margin, optically centred, with deliberate symmetry or balanced asymmetry and a clear focal point. It must read at 32px and survive in one flat color.
+- Build the mark from smooth <path> elements using cubic (C/S) and quadratic (Q/T) Bézier commands and arcs (A) with precise coordinates (one decimal max). Layer 2–5 paths: a main form, a counter-form / negative-space cut, and a refined accent or highlight.
+- Depth & finish: define 1–2 subtle gradients in <defs> (<linearGradient> / <radialGradient>, 2–3 stops of close tones from the palette) and use them on the main form; add a soft highlight layer (white or a light tint at opacity 0.12–0.35) or a hairline stroke accent. Optional: one soft <filter> drop shadow (feDropShadow, stdDeviation ≤ 4, opacity ≤ 0.25). Use fill-rule="evenodd" for cut-outs.
+- Use at most 3 palette colors plus white; give gradients and filters unique ids and reference them with url(#id).
+- Wordmarks (only in a 320×200 lockup) should be letterforms drawn as paths; if you must use <text>, keep it small (font-size ≤ 34, letter-spacing ≥ 2, font-family="Helvetica Neue, Arial, sans-serif", font-weight="600") and never as the main mark.
+- FORBIDDEN: a plain circle / square / triangle / star as the mark; a single large <text> character; stick figures; clip-art (lightbulbs, globes, gears, generic leaves, swooshes, crowns); random overlapping primitives; photo-realism; hairlines thinner than 1.5px; details that vanish at 32px. <circle>/<rect>/<ellipse> may only be supporting construction pieces, never the whole idea.
+- Allowed elements only: <g>, <path>, <circle>, <rect>, <ellipse>, <polygon>, <polyline>, <line>, <text>, <defs>, <linearGradient>, <radialGradient>, <stop>, <clipPath>, <mask>, <filter>, <feDropShadow>, <feGaussianBlur>, <feOffset>, <feMerge>, <feMergeNode>. No scripts, <style>, CSS, external links, <image> or fonts.
+Before writing each SVG, plan the grid and construction mentally; output only the final, polished code.`,
       prompt: `Create the brand identity.\n\nBrief:\n${block([
         line("Brand name", inputs.brand),
         line("Industry / niche", inputs.industry),
@@ -451,7 +454,7 @@ The three concepts must differ meaningfully (e.g. monogram, symbol, wordmark/emb
         line("Avoid", inputs.avoid),
       ])}${contextBlock}`,
       temperature: 0.7,
-      maxOutputTokens: 7000,
+      maxOutputTokens: 10000,
       json: true,
     };
   }

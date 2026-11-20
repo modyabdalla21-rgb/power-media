@@ -43,7 +43,7 @@ const identitySchema = z.object({
   typography: z.object({ heading: font, body: font, arabic: font.optional() }),
   voice: z.object({ do: strList(2, 5, 200), dont: strList(2, 5, 200), sample_lines: strList(1, 3, 240).optional() }),
   concepts: z
-    .array(z.object({ name: str(80), idea: str(600), logo_prompt: z.string().trim().max(1200).optional().default(""), svg: z.string().max(20000).optional().default("") }))
+    .array(z.object({ name: str(80), idea: str(600), logo_prompt: z.string().trim().max(1200).optional().default(""), svg: z.string().max(30000).optional().default("") }))
     .min(1)
     .transform((a) => a.slice(0, 3)),
 });
@@ -56,6 +56,8 @@ export type BrandIdentity = Omit<z.infer<typeof identitySchema>, "concepts"> & {
 const ALLOWED = new Set([
   "svg", "g", "path", "circle", "rect", "ellipse", "line", "polyline", "polygon", "text", "tspan",
   "defs", "lineargradient", "radialgradient", "stop", "clippath", "mask", "title", "desc",
+  // Soft shadows / highlights only (no feImage, no external inputs).
+  "filter", "fedropshadow", "fegaussianblur", "feoffset", "femerge", "femergenode", "feflood", "fecomposite", "fecolormatrix", "feblend",
 ]);
 /** Removed together with everything inside them. */
 const DROP_WITH_CONTENT = "script|style|foreignObject|iframe|object|embed|audio|video|canvas|noscript";
@@ -76,6 +78,39 @@ function wellFormed(svg: string) {
     } else if (!selfClosing) stack.push(name);
   }
   return stack.length === 0;
+}
+
+/**
+ * Root <svg>: scale by viewBox only (drop fixed width/height; derive a
+ * viewBox from them when missing) so marks fill their preview cleanly.
+ */
+function normalizeRoot(svg: string) {
+  const end = svg.indexOf(">");
+  let root = svg.slice(0, end);
+  const num = (attr: string) => {
+    const m = new RegExp(`\\s${attr}\\s*=\\s*["']\\s*([\\d.]+)(?:px)?\\s*["']`, "i").exec(root);
+    return m ? Number(m[1]) : null;
+  };
+  if (!/\sviewBox\s*=/i.test(root)) {
+    const w = num("width") ?? 240;
+    const h = num("height") ?? 240;
+    root += ` viewBox="0 0 ${w} ${h}"`;
+  }
+  root = root.replace(/\s(width|height)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+  if (!/\spreserveAspectRatio=/i.test(root)) root += ' preserveAspectRatio="xMidYMid meet"';
+  return root + svg.slice(end);
+}
+
+/**
+ * Rough craft check for a sanitised mark: crude marks are built only from
+ * primitives or one big typed character, with few or no Bézier curves.
+ */
+export function isCrudeLogo(svg: string | null): boolean {
+  if (!svg) return true;
+  const paths = [...svg.matchAll(/<path\b[^>]*\sd\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]);
+  const curves = paths.reduce((n, d) => n + (d.match(/[CcSsQqTtAa]/g)?.length ?? 0), 0);
+  const bigText = [...svg.matchAll(/<text\b[^>]*font-size\s*=\s*["']?([\d.]+)/gi)].some((m) => Number(m[1]) >= 60);
+  return paths.length === 0 || curves < 3 || bigText;
 }
 
 /** Allow-list sanitiser; returns null if the result isn't a clean, usable SVG. */
@@ -102,8 +137,9 @@ export function sanitizeSvg(raw: string | undefined | null): string | null {
     // Only XML's built-in / numeric entities are valid without a DOCTYPE.
     .replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);)/gi, "&amp;");
   if (!/\sxmlns=/.test(s.slice(0, s.indexOf(">")))) s = s.replace(/<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+  s = normalizeRoot(s);
 
-  if (s.length > 12000 || !wellFormed(s)) return null;
+  if (s.length > 24000 || !wellFormed(s)) return null;
   if (!/<(path|circle|rect|ellipse|polygon|polyline|line|text)\b/i.test(s)) return null;
   return s;
 }
@@ -124,7 +160,11 @@ export function parseIdentity(text: string): BrandIdentity | null {
     console.error("[ai] identity schema mismatch", parsed.error.issues.slice(0, 3).map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
     return null;
   }
-  return { ...parsed.data, concepts: parsed.data.concepts.map((c) => ({ ...c, svg: sanitizeSvg(c.svg) })) };
+  return {
+    ...parsed.data,
+    // Names like "Concept 1 — Arch" would clash with the numbered cards.
+    concepts: parsed.data.concepts.map((c) => ({ ...c, name: c.name.replace(/^\s*(concept|direction|مفهوم|فكرة|اتجاه)?\s*#?\d+\s*[:.)—–-]?\s*/i, "").trim() || c.name, svg: sanitizeSvg(c.svg) })),
+  };
 }
 
 /** Readable Markdown version for the AI library (no SVG). */

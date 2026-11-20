@@ -3,7 +3,7 @@ import { z } from "zod";
 import { loadContext } from "@/lib/ai/context";
 import { polishData, polishOutput } from "@/lib/ai/polish";
 import { loadBrandState } from "@/lib/ai/brand-state";
-import { identityToMarkdown, parseIdentity } from "@/lib/ai/identity";
+import { identityToMarkdown, isCrudeLogo, parseIdentity, type BrandIdentity } from "@/lib/ai/identity";
 import { analysisToMarkdown, diagnosisToMarkdown, legacyTaskRows, parseAnalysis, parseDiagnosis, parsePlan, planToMarkdown, type GrowthDiagnosis, type GrowthPlan } from "@/lib/ai/structured";
 import { discoverySchema, discoveryToText } from "@/lib/client/discovery";
 import { buildPrompt } from "@/lib/ai/prompts";
@@ -192,6 +192,19 @@ export async function POST(request: Request, ctx: { params: Promise<{ tool: stri
       if (!structured && left > 12_000) {
         result = await generateText(spec, left);
         structured = parse(result.text);
+      }
+      // Identity: if most logo marks came back crude, try once more when time allows; keep the better set.
+      const crude = (v: typeof structured) => (v ? (v.data as BrandIdentity).concepts.filter((c) => isCrudeLogo(c.svg)).length : 99);
+      if (tool.output === "identity" && structured && crude(structured) >= 2) {
+        const remaining = GENERATION_DEADLINE_MS - (Date.now() - started) - 3_000;
+        if (remaining > 25_000) {
+          const retry = await generateText(spec, remaining).catch(() => null);
+          const better = retry ? parse(retry.text) : null;
+          if (better && crude(better) < crude(structured)) {
+            result = retry!;
+            structured = better;
+          }
+        }
       }
       if (!structured) throw new AiError("badRequest", `${tool.output} output could not be parsed`);
     }
