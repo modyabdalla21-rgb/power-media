@@ -2,12 +2,13 @@ import { ApplyConceptButton } from "@/components/client/apply-concept";
 import type { Dictionary } from "@/i18n/dictionaries/en";
 import type { BrandIdentity } from "@/lib/ai/identity";
 import { PaletteSwatches, TypographyList, VoiceList } from "./brand-visuals";
-import { ConceptLogo, type LogoImage } from "./concept-logo";
+import { ConceptLogo, RetryAllLogosButton, type LogoImage } from "./concept-logo";
+import { refinedLogo } from "@/lib/ai/logo-craft";
 
 type D = Dictionary["dashboard"];
 
 /** AI brand-identity result: shared brand system + three logo concepts. */
-export function IdentityConceptsView({ identity, d, generationId, canApply, brandHref, dir, images, autoRender = false }: {
+export function IdentityConceptsView({ identity, d, generationId, canApply, brandHref, dir, images, autoRender = false, showDiagnostics = false }: {
   identity: BrandIdentity;
   d: D;
   generationId?: string | null;
@@ -18,6 +19,8 @@ export function IdentityConceptsView({ identity, d, generationId, canApply, bran
   images?: (LogoImage | null)[];
   /** Render missing logo images on mount (fresh generations). */
   autoRender?: boolean;
+  /** Staff: per-model image diagnostics on failures. */
+  showDiagnostics?: boolean;
 }) {
   const b = d.brand;
   const fileBase = identity.brand_name.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "").slice(0, 40) || "logo";
@@ -43,7 +46,10 @@ export function IdentityConceptsView({ identity, d, generationId, canApply, bran
         </section>
       </div>
       <section>
-        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-subtle">{b.logo}</h4>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-ink-subtle">{b.logo}</h4>
+          {images?.some((x) => !x) !== false && <RetryAllLogosButton label={d.identity.retryAll} />}
+        </div>
         {/* Container-sized: 3 columns only when each card has room; otherwise 1 → 2 → 3 rows stay in order. */}
         <div className="@container">
           <ol className="grid gap-4 @2xl:grid-cols-3">
@@ -54,7 +60,8 @@ export function IdentityConceptsView({ identity, d, generationId, canApply, bran
                     <ConceptLogo
                       generationId={generationId ?? null}
                       concept={i}
-                      svg={c.svg}
+                      svg={refinedLogo(c.svg, { brand: identity.brand_name, palette: identity.palette, index: i })}
+                      showDiagnostics={showDiagnostics}
                       initial={images?.[i] ?? null}
                       auto={autoRender}
                       preview={generationId ? undefined : { brand: identity.brand_name, name: c.name, idea: c.idea, logoPrompt: c.logo_prompt, colors: identity.palette.map((p) => p.hex) }}

@@ -133,7 +133,7 @@ export default async function GenerationPage({ params }: PageProps<"/[locale]/da
           {g.tool === "staticPost" && postData ? (
             <StaticPostStudio data={postData} imageUrl={postImage} logo={postLogo} t={dict.dashboard.post} dir={dir} />
           ) : g.tool === "brandIdentity" && g.data?.concepts ? (
-            <IdentityConceptsView identity={g.data} d={dict.dashboard} generationId={g.id} canApply={canApply} brandHref={profile.role === "client" ? localizedHref(locale, "/dashboard/brand") : undefined} dir={dir} images={logoImages} />
+            <IdentityConceptsView identity={g.data} d={dict.dashboard} generationId={g.id} canApply={canApply} brandHref={profile.role === "client" ? localizedHref(locale, "/dashboard/brand") : undefined} dir={dir} images={logoImages} showDiagnostics={isStaff} />
           ) : (
             <Markdown text={polishOutput(g.output ?? "", g.language)} dir={dir} />
           )}

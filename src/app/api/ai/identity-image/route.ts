@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { generateImage, logoImagePrompt } from "@/lib/ai/image";
+import { generateImage, ImageGenError, logoImagePrompt } from "@/lib/ai/image";
 import type { BrandIdentity } from "@/lib/ai/identity";
 import { kitColors } from "@/lib/ai/post";
 import { AiError } from "@/lib/ai/types";
@@ -25,12 +25,26 @@ const EXT: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "
 const HOURLY_IMAGE_LIMIT = 30;
 const TTL = 60 * 60;
 
-/** Error → response. `fallback`: the UI keeps the vector (SVG) draft. */
-function aiErrorResponse(err: unknown) {
+/**
+ * Error → response. `fallback`: the UI keeps the vector logo. `reason` tells
+ * a temporary rate limit from a key without image quota or an unavailable
+ * model; per-model `attempts` are for diagnostics (Google's messages only for staff).
+ */
+function aiErrorResponse(err: unknown, staff: boolean) {
   const e = err instanceof AiError ? err : new AiError("unknown", String(err));
   if (!(err instanceof AiError)) console.error("[ai-image] unexpected", err);
   const status = e.code === "quota" || e.code === "rateLimited" ? 429 : e.code === "timeout" ? 504 : e.code === "blocked" || e.code === "badRequest" ? 422 : 503;
-  return json({ code: e.code, fallback: true }, status);
+  const img = err instanceof ImageGenError ? err : null;
+  return json(
+    {
+      code: e.code,
+      reason: img?.reason ?? (e.code === "notConfigured" ? "notConfigured" : e.code === "auth" ? "auth" : "unavailable"),
+      retryAfter: e.retryAfterSec,
+      attempts: img?.attempts.map((a) => ({ model: a.model, status: a.status, reason: a.reason, ...(staff ? { message: a.message } : {}) })),
+      fallback: true,
+    },
+    status,
+  );
 }
 
 async function signed(supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>, path: string, fileName: string) {
@@ -61,7 +75,7 @@ export async function POST(request: Request) {
       const url = `data:${img.mimeType};base64,${img.data}`;
       return json({ url, downloadUrl: url, fileName: fileNameFor(p.brand, concept, img.mimeType), model: img.model, stored: false });
     } catch (err) {
-      return aiErrorResponse(err);
+      return aiErrorResponse(err, true);
     }
   }
 
@@ -84,7 +98,7 @@ export async function POST(request: Request) {
     }
     const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { count } = await supabase.from("brand_logo_images").select("id", { count: "exact", head: true }).eq("created_by", profile.id).gte("created_at", since);
-    if ((count ?? 0) >= HOURLY_IMAGE_LIMIT) return json({ code: "userLimit", fallback: true, retryAfter: 3600 }, 429);
+    if ((count ?? 0) >= HOURLY_IMAGE_LIMIT) return json({ code: "userLimit", reason: "userLimit", fallback: true, retryAfter: 3600 }, 429);
   }
 
   const inputs = (gen.inputs ?? {}) as Record<string, string>;
@@ -94,7 +108,8 @@ export async function POST(request: Request) {
       logoImagePrompt({ brand: identity.brand_name, conceptIndex: concept, conceptName: c.name, idea: c.idea, logoPrompt: c.logo_prompt, colors: kitColors(identity.palette), industry: inputs.industry }),
     );
   } catch (err) {
-    return aiErrorResponse(err);
+    console.error(`[ai-image] generation ${gen.id} concept ${concept + 1} fell back to vector`);
+    return aiErrorResponse(err, profile.role !== "client");
   }
   const fileName = fileNameFor(identity.brand_name, concept, img.mimeType);
 

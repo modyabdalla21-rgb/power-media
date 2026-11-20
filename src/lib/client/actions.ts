@@ -1,4 +1,5 @@
 "use server";
+import { refinedLogo } from "@/lib/ai/logo-craft";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -141,7 +142,7 @@ export async function applyIdentityConcept(_prev: ApplyState, fd: FormData): Pro
       typography: identity.typography,
       voice: { do: identity.voice?.do ?? [], dont: identity.voice?.dont ?? [], personality: identity.personality ?? [] },
       // Re-sanitise on the way into a long-lived record (defence in depth).
-      logo_svg: sanitizeSvg(concept.svg),
+      logo_svg: sanitizeSvg(refinedLogo(sanitizeSvg(concept.svg), { brand: identity.brand_name, palette: identity.palette, index })),
       logo_prompt: concept.logo_prompt?.slice(0, 2000) || null,
       generation_id: gen.id,
       logo_asset_id: logoAssetId,

@@ -38,7 +38,7 @@ type State =
  * output. The server validates, generates, saves to the AI library and
  * returns only normalised error codes.
  */
-export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, mode = "markdown", brandNote, brandHref, canApply, postKit }: {
+export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, mode = "markdown", brandNote, brandHref, canApply, postKit, staff = false }: {
   slug: string;
   fields: ClientToolField[];
   t: T;
@@ -51,6 +51,8 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
   brandNote?: { text: string; warn?: boolean } | null;
   brandHref?: string;
   canApply?: boolean;
+  /** Staff see technical diagnostics (e.g. image model status codes). */
+  staff?: boolean;
   /** Static Post Studio: the brand's workspace (for uploads), product photos and logo. */
   postKit?: { clientId: string | null; images: ProductImage[]; logo: PostLogo };
 }) {
@@ -275,7 +277,7 @@ export function ToolWorkspace({ slug, fields, t, d, libraryHref, languageField, 
               {mode === "post" && state.post ? (
                 <StaticPostStudio data={state.post} imageUrl={state.imageUrl} logo={postKit?.logo ?? null} t={d.post} dir={outputDir} />
               ) : mode === "identity" && state.identity ? (
-                <IdentityConceptsView identity={state.identity} d={d} generationId={state.id} canApply={canApply && !!state.id} brandHref={brandHref} dir={outputDir} autoRender />
+                <IdentityConceptsView identity={state.identity} d={d} generationId={state.id} canApply={canApply && !!state.id} brandHref={brandHref} dir={outputDir} autoRender showDiagnostics={staff} />
               ) : (
                 <Markdown text={state.text} dir={outputDir} />
               )}

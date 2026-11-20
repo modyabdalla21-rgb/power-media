@@ -133,6 +133,7 @@ export default async function AiToolPage({ params, searchParams }: PageProps<"/[
         languageField={tool.languageField}
         mode={tool.output === "identity" ? "identity" : isPost ? "post" : "markdown"}
         postKit={postKit}
+        staff={!isClient}
         brandNote={brandNote}
         brandHref={isClient ? localizedHref(locale, "/dashboard/brand") : undefined}
         canApply={tool.output === "identity"}

@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { enumLabel, outputDialect } from "./polish";
+import { refinedLogo } from "./logo-craft";
 
 /**
  * Brand identity output: parsing, validation and SVG sanitising.
@@ -101,17 +102,7 @@ function normalizeRoot(svg: string) {
   return root + svg.slice(end);
 }
 
-/**
- * Rough craft check for a sanitised mark: crude marks are built only from
- * primitives or one big typed character, with few or no Bézier curves.
- */
-export function isCrudeLogo(svg: string | null): boolean {
-  if (!svg) return true;
-  const paths = [...svg.matchAll(/<path\b[^>]*\sd\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]);
-  const curves = paths.reduce((n, d) => n + (d.match(/[CcSsQqTtAa]/g)?.length ?? 0), 0);
-  const bigText = [...svg.matchAll(/<text\b[^>]*font-size\s*=\s*["']?([\d.]+)/gi)].some((m) => Number(m[1]) >= 60);
-  return paths.length === 0 || curves < 3 || bigText;
-}
+export { isCrudeLogo } from "./logo-craft";
 
 /** Allow-list sanitiser; returns null if the result isn't a clean, usable SVG. */
 export function sanitizeSvg(raw: string | undefined | null): string | null {
@@ -163,7 +154,12 @@ export function parseIdentity(text: string): BrandIdentity | null {
   return {
     ...parsed.data,
     // Names like "Concept 1 — Arch" would clash with the numbered cards.
-    concepts: parsed.data.concepts.map((c) => ({ ...c, name: c.name.replace(/^\s*(concept|direction|مفهوم|فكرة|اتجاه)?\s*#?\d+\s*[:.)—–-]?\s*/i, "").trim() || c.name, svg: sanitizeSvg(c.svg) })),
+    concepts: parsed.data.concepts.map((c, i) => ({
+      ...c,
+      name: c.name.replace(/^\s*(concept|direction|مفهوم|فكرة|اتجاه)?\s*#?\d+\s*[:.)—–-]?\s*/i, "").trim() || c.name,
+      // Weak AI marks (single primitives, giant letters…) are replaced by a crafted multi-layer mark.
+      svg: sanitizeSvg(refinedLogo(sanitizeSvg(c.svg), { brand: parsed.data.brand_name, palette: parsed.data.palette, index: i })),
+    })),
   };
 }
 
